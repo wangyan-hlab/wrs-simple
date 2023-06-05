@@ -117,24 +117,24 @@ class FR5_robot(ri.RobotInterface):
         else:
             intolist = intolist_arm
         self.cc.set_cdpair(fromlist, intolist)
-        fromlist = [self.arm.lnks[2]]
-        intolist = [self.arm.lnks[4],
-                    self.arm.lnks[5],
-                    self.arm.lnks[6]]
-        if self.peg_attached:
-            intolist_peg = [self.hnd.jlc.lnks[0]]
-            intolist = intolist_arm + intolist_peg
-        else:
-            intolist = intolist_arm
-        self.cc.set_cdpair(fromlist, intolist)
-        fromlist = [self.arm.lnks[3]]
-        intolist = [self.arm.lnks[6]]
-        if self.peg_attached:
-            intolist_peg = [self.hnd.jlc.lnks[0]]
-            intolist = intolist_arm + intolist_peg
-        else:
-            intolist = intolist_arm
-        self.cc.set_cdpair(fromlist, intolist)
+        # fromlist = [self.arm.lnks[2]]
+        # intolist = [self.arm.lnks[4],
+        #             self.arm.lnks[5],
+        #             self.arm.lnks[6]]
+        # if self.peg_attached:
+        #     intolist_peg = [self.hnd.jlc.lnks[0]]
+        #     intolist = intolist_arm + intolist_peg
+        # else:
+        #     intolist = intolist_arm
+        # self.cc.set_cdpair(fromlist, intolist)
+        # fromlist = [self.arm.lnks[3]]
+        # intolist = [self.arm.lnks[6]]
+        # if self.peg_attached:
+        #     intolist_peg = [self.hnd.jlc.lnks[0]]
+        #     intolist = intolist_arm + intolist_peg
+        # else:
+        #     intolist = intolist_arm
+        # self.cc.set_cdpair(fromlist, intolist)
 
     def get_hnd_on_manipulator(self, manipulator_name):
         if manipulator_name == 'arm':

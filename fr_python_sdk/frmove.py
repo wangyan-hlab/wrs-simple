@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from frrpc import RPC
+from fr_python_sdk.frrpc import RPC
 
 class FRCobot(object):
     """

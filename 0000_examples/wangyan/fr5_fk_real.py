@@ -7,6 +7,7 @@ from modeling import collision_model as cm
 from robot_sim.robots.fr5 import fr5 as fr5
 from motion.probabilistic import rrt_connect as rrtc
 from basis import robot_math as rm
+from fr_python_sdk.frmove import FRCobot
 
 def genSphere(pos, radius=0.005, rgba=None):
     if rgba is None:
@@ -18,15 +19,15 @@ if __name__ == '__main__':
     base = wd.World(cam_pos=[2, 2, 1], lookat_pos=[0, 0, 0.5], w=960, h=720)
     gm.gen_frame().attach_to(base)
     component_name = 'arm'
+    # simulated robot
     robot_s = fr5.FR5_robot(enable_cc=True, peg_attached=False)
-    robot_s.show_cdprimit()
     robot_meshmodel = robot_s.gen_meshmodel(toggle_tcpcs=True)
     robot_meshmodel.attach_to(base)
-    # base.run()
+    # real robot
+    robot_r = FRCobot()
 
-
-    start_conf = np.radians([0, 0, 0, 0, 0, 0])
-    goal_conf = np.radians([60, -80, 80, 0, 0, 0])
+    start_conf = np.radians([60, -80, 80, 0, 0, 0])
+    goal_conf = np.radians([60, -80, 80, 0, 60, 0])
     robot_s.fk(component_name, start_conf)
     robot_s.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.5]).attach_to(base)
     robot_s.fk(component_name, goal_conf)
@@ -45,8 +46,9 @@ if __name__ == '__main__':
 
     print(path)
 
-    def update(rbtmnp, motioncounter, robot, path, armname, task):
+    def update(rbtmnp, motioncounter, robot, path, armname, real_robot, task):
         if motioncounter[0] < len(path):
+            # update simulated robot
             if rbtmnp[0] is not None:
                 rbtmnp[0].detach()
             pose = path[motioncounter[0]]
@@ -54,14 +56,23 @@ if __name__ == '__main__':
             rbtmnp[0] = robot.gen_meshmodel(toggle_tcpcs=True)
             rbtmnp[0].attach_to(base)
             genSphere(robot.get_gl_tcp(component_name)[0], radius=0.01, rgba=[1, 1, 0, 1])
+            
+            # control real robot
+            if real_robot:
+                pose = list(pose)
+                for i in range(6):
+                    pose[i] = float(pose[i])
+                robot_r.MoveJ(target_pos=pose, target_flag="joint", blendT=100)
+            
             motioncounter[0] += 1
         else:
             motioncounter[0] = 0
         return task.again
     rbtmnp = [None]
     motioncounter = [0]
+    real_robot = False
     taskMgr.doMethodLater(0.07, update, "update",
-                          extraArgs=[rbtmnp, motioncounter, robot_s, path, component_name], appendTask=True)
+                          extraArgs=[rbtmnp, motioncounter, robot_s, path, component_name, real_robot], appendTask=True)
     base.setFrameRateMeter(True)
     base.run()
 
