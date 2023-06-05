@@ -14,26 +14,26 @@ class FR5(mi.ManipulatorInterface):
         self.jlc = jl.JLChain(pos=pos, rotmat=rotmat, homeconf=homeconf, name=name, cdprimitive_type="cylinder")
         # six joints, n_jnts = 6+2 (tgt ranges from 1-6), nlinks = 6+1
         self.jlc.jnts[1]['loc_pos'] = np.array([0, 0, 0.155])
+        self.jlc.jnts[1]['motion_rng'] = np.deg2rad([-175, 175])
         self.jlc.jnts[2]['loc_pos'] = np.array([0, 0.138, 0])
-        self.jlc.jnts[2]['loc_rotmat'] = rm.rotmat_from_euler(.0, math.pi / 2.0, .0)
+        self.jlc.jnts[2]['loc_rotmat'] = rm.rotmat_from_euler(.0, np.pi/2, .0)
         self.jlc.jnts[2]['loc_motionax'] = np.array([0, 1, 0])
-        self.jlc.jnts[2]['motion_rng'] = np.array([-175, 175])*math.pi/180
+        self.jlc.jnts[2]['motion_rng'] = np.deg2rad([-265, 85])
         self.jlc.jnts[3]['loc_pos'] = np.array([0, -0.138, 0.425])
         self.jlc.jnts[3]['loc_motionax'] = np.array([0, 1, 0])
-        self.jlc.jnts[3]['motion_rng'] = np.array([-265, 85]) * math.pi / 180
+        self.jlc.jnts[3]['motion_rng'] = np.deg2rad([-160, 160])
         self.jlc.jnts[4]['loc_pos'] = np.array([.0, .0, 0.395])
-        self.jlc.jnts[4]['loc_rotmat'] = rm.rotmat_from_euler(.0, math.pi / 2.0, 0)
+        self.jlc.jnts[4]['loc_rotmat'] = rm.rotmat_from_euler(.0, np.pi/2, 0)
         self.jlc.jnts[4]['loc_motionax'] = np.array([0, 1, 0])
-        self.jlc.jnts[4]['motion_rng'] = np.array([-160, 160]) * math.pi / 180
+        self.jlc.jnts[4]['motion_rng'] = np.deg2rad([-265, 85])
         self.jlc.jnts[5]['loc_pos'] = np.array([0, 0.130, 0])
         self.jlc.jnts[5]['loc_motionax'] = np.array([0, 0, 1])
-        self.jlc.jnts[5]['motion_rng'] = np.array([-265, 85]) * math.pi / 180
+        self.jlc.jnts[5]['motion_rng'] = np.deg2rad([-175, 175])
         self.jlc.jnts[6]['loc_pos'] = np.array([0, 0, .102])
         self.jlc.jnts[6]['loc_motionax'] = np.array([0, 1, 0])
-        self.jlc.jnts[6]['motion_rng'] = np.array([-175, 175]) * math.pi / 180
+        self.jlc.jnts[6]['motion_rng'] = np.deg2rad([-175, 175])
         self.jlc.jnts[7]['loc_pos'] = np.array([0, .102, 0])
-        self.jlc.jnts[7]['loc_rotmat'] = rm.rotmat_from_euler(-math.pi/2.0, 0, 0)
-        self.jlc.jnts[7]['motion_rng'] = np.array([-175, 175]) * math.pi / 180
+        self.jlc.jnts[7]['loc_rotmat'] = rm.rotmat_from_euler(-np.pi/2, 0, 0)
         # links
         arm_color1 = [.65, .65, .65, 1.0]
         arm_color2 = [0.6, 0.5, 0.3, 1.0]
