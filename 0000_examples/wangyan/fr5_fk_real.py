@@ -38,7 +38,7 @@ path = rrtc_planner.plan(component_name=component_name,
                             start_conf=start_conf,
                             goal_conf=goal_conf,
                             obstacle_list=[],
-                            ext_dist=0.005,
+                            ext_dist=0.1,
                             max_time=300)
 time_end = time.time()
 print("Planning time = ", time_end-time_start)
@@ -93,7 +93,9 @@ if real_robot:
         for i in range(6):
             pose[i] = float(np.rad2deg(pose[i]))
         print("目标关节位置:", pose)
-        robot_r.robot.ServoJ(pose,acc,vel,t,lookahead_time,P)
+    #     robot_r.robot.ServoJ(pose,acc,vel,t,lookahead_time,P)
+    
+    robot_r.MoveJSeq(path, n_granularity=30)
 
 #%%
 # Move to start_jnts

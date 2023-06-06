@@ -13,7 +13,7 @@ class FRCobot(object):
     def __init__(self, ip="192.168.58.2") -> None:
         
         self.robot = RPC(ip)
-        
+
 
     def ResetAllError(self):
         """
@@ -22,9 +22,9 @@ class FRCobot(object):
         resetallerror_ret = self.robot.ResetAllError() 
         time.sleep(1.0)
         if resetallerror_ret != 0:
-            print("无法清除错误状态,错误不可复位,错误码:", resetallerror_ret)
+            print("[ERROR] 无法清除错误状态,错误不可复位,错误码:", resetallerror_ret)
         else:
-            print("错误状态已清除,机器人成功复位")
+            print("[INFO] 错误状态已清除,机器人成功复位")
 
 
     def GetJointPos(self, flag=0, unit="deg"):
@@ -47,9 +47,9 @@ class FRCobot(object):
         elif unit == "rad":
             getjntpos_ret = self.robot.GetActualJointPosRadian(flag)
         else:
-            raise ValueError("无效的关键字")
+            raise ValueError("[WARNING] 无效的关键字")
         if getjntpos_ret[0] != 0:
-            print("GetJointPos 失败,错误码:", getjntpos_ret[0])
+            print("[ERROR] GetJointPos 失败,错误码:", getjntpos_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return
         else:
@@ -77,9 +77,9 @@ class FRCobot(object):
         elif tool == "flange":
             gettcppose_ret = self.robot.GetActualToolFlangePose(flag)
         else:
-            raise ValueError("无效的关键字")
+            raise ValueError("[WARNING] 无效的关键字")
         if gettcppose_ret[0] != 0:
-            print("GetTCPPose 失败,错误码:", gettcppose_ret[0])
+            print("[ERROR] GetTCPPose 失败,错误码:", gettcppose_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return
         else:
@@ -107,9 +107,9 @@ class FRCobot(object):
         elif frame == "wobj":
             getframenum_ret = self.robot.GetActualWObjNum(flag)
         else:
-            raise ValueError("无效的关键字")
+            raise ValueError("[WARNING] 无效的关键字")
         if getframenum_ret[0] != 0:
-            print("GetFrameNum 失败,错误码:", getframenum_ret[0])
+            print("[ERROR] GetFrameNum 失败,错误码:", getframenum_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return
         else:
@@ -137,9 +137,9 @@ class FRCobot(object):
         elif frame == "wobj":
             getframeoffset_ret = self.robot.GetWObjOffset(flag)
         else:
-            raise ValueError("无效的关键字")
+            raise ValueError("[WARNING] 无效的关键字")
         if getframeoffset_ret[0] != 0:
-            print("GetFrameOffset 失败,错误码:", getframeoffset_ret[0])
+            print("[ERROR] GetFrameOffset 失败,错误码:", getframeoffset_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return
         else:
@@ -161,18 +161,18 @@ class FRCobot(object):
 
         gettgtpayload_ret = self.robot.GetTargetPayload(flag)
         if gettgtpayload_ret[0] != 0:
-            print("GetPayloadWeight 失败,错误码:", gettgtpayload_ret[0])
+            print("[ERROR] GetPayloadWeight 失败,错误码:", gettgtpayload_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return
         else:
-            print("GetPayloadWeight 成功,负载质量(kg):", gettgtpayload_ret[1])
+            print("[INFO] GetPayloadWeight 成功,负载质量(kg):", gettgtpayload_ret[1])
         gettgtpayloadcog_ret = self.robot.GetTargetPayloadCog(flag)
         if gettgtpayloadcog_ret[0] != 0:
-            print("GetPayloadCOG 失败,错误码:", gettgtpayloadcog_ret[0])
+            print("[ERROR] GetPayloadCOG 失败,错误码:", gettgtpayloadcog_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return
         else:
-            print("GetPayloadCOG 成功,负载质心坐标:", gettgtpayloadcog_ret[1:])
+            print("[INFO] GetPayloadCOG 成功,负载质心坐标:", gettgtpayloadcog_ret[1:])
         return gettgtpayload_ret[1], gettgtpayloadcog_ret[1:]
 
 
@@ -189,7 +189,7 @@ class FRCobot(object):
 
         getfk_ret = self.robot.GetForwardKin(joint_pos)
         if getfk_ret[0] != 0:
-            print("GetForwardKin 失败,错误码:", getfk_ret[0])
+            print("[ERROR] GetForwardKin 失败,错误码:", getfk_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return
         else:
@@ -224,13 +224,13 @@ class FRCobot(object):
                     # print("GetInverseKinRef 成功,关节位置为:", target_joint_pos)
                     return target_joint_pos
                 else:
-                    print("GetInverseKinRef 失败,错误码:", getikref_ret[0])
+                    print("[ERROR] GetInverseKinRef 失败,错误码:", getikref_ret[0])
                     self.ResetAllError() # 尝试清除错误状态
                     return # GetInverseKinHasSolution()失败则直接结束
             else:
-                raise ValueError("逆运动学无解")
+                raise ValueError("[WARNING] 逆运动学无解")
         else:
-            print("GetInverseKinHasSolution 失败,错误码:", ik_has_solution[0])
+            print("[ERROR] GetInverseKinHasSolution 失败,错误码:", ik_has_solution[0])
             self.ResetAllError() # 尝试清除错误状态
             return # GetInverseKinRef()失败则直接结束
 
@@ -270,24 +270,24 @@ class FRCobot(object):
             startjog_ret = self.robot.StartJOG(ref, joint_num, dir, vel, acc, max_dis)
             time.sleep(0.5*max_dis)
             if startjog_ret != 0:
-                print("StartJOG 失败,错误码:", startjog_ret)
+                print("[ERROR] StartJOG 失败,错误码:", startjog_ret)
                 self.ResetAllError() # 尝试清除错误状态
                 return  # StartJOG()失败则直接结束
             if stop_mode == "stopjog":
                 stopjog_ret = self.robot.StopJOG(1)
                 time.sleep(1.0) 
                 if stopjog_ret != 0:
-                    print("StopJOG 失败,错误码:", stopjog_ret)
+                    print("[ERROR] StopJOG 失败,错误码:", stopjog_ret)
                     self.ResetAllError() # 尝试清除错误状态
                     return # StopJOG()失败则直接结束
             elif stop_mode == "immstopjog":
                 immstopjog_ret = self.robot.ImmStopJOG()
                 time.sleep(1.0)
                 if immstopjog_ret != 0:
-                    print("ImmStopJOG 失败,错误码:", immstopjog_ret)
+                    print("[ERROR] ImmStopJOG 失败,错误码:", immstopjog_ret)
                     self.ResetAllError() # 尝试清除错误状态
                     return # ImmStopJOG()失败则直接结束
-        print("JointJOG 运行成功")
+        print("[INFO] JointJOG 运行成功")
 
 
     def CartJog(self, frame, dim, dis, 
@@ -326,10 +326,10 @@ class FRCobot(object):
         elif frame == "wobj":
             ref = 8 # 工件坐标系点动
         else:
-            raise ValueError("无效的关键字")
+            raise ValueError("[WARNING ]无效的关键字")
         dir = 1 if dis > 0.0 else 0 # 运动方向
         if max_dis <= 0.0:
-            raise ValueError("max_dis must be greater than 0.0") # 单次点动最大角度必须为正
+            raise ValueError("[WARNING] max_dis must be greater than 0.0") # 单次点动最大角度必须为正
         loop_num = int(abs(dis)//max_dis) if abs(dis)%max_dis==0.0 \
             else int(abs(dis)//max_dis)+1 # 计算点动次数
         
@@ -337,24 +337,24 @@ class FRCobot(object):
             startjog_ret = self.robot.StartJOG(ref, dim, dir, vel, acc, max_dis)
             time.sleep(0.5*max_dis)
             if startjog_ret != 0:
-                print("StartJOG 失败,错误码:", startjog_ret)
+                print("[ERROR] StartJOG 失败,错误码:", startjog_ret)
                 self.ResetAllError() # 尝试清除错误状态
                 return  # StartJOG()失败则直接结束
             if stop_mode == "stopjog":
                 stopjog_ret = self.robot.StopJOG(1)
                 time.sleep(1.0) 
                 if stopjog_ret != 0:
-                    print("StopJOG 失败,错误码:", stopjog_ret)
+                    print("[ERROR] StopJOG 失败,错误码:", stopjog_ret)
                     self.ResetAllError() # 尝试清除错误状态
                     return # StopJOG()失败则直接结束
             elif stop_mode == "immstopjog":
                 immstopjog_ret = self.robot.ImmStopJOG()
                 time.sleep(1.0)
                 if immstopjog_ret != 0:
-                    print("ImmStopJOG 失败,错误码:", immstopjog_ret)
+                    print("[ERROR] ImmStopJOG 失败,错误码:", immstopjog_ret)
                     self.ResetAllError() # 尝试清除错误状态
                     return # ImmStopJOG()失败则直接结束
-        print("CartJOG 运行成功")
+        print("[INFO] CartJOG 运行成功")
 
 
     def MoveJ(self, target_pos, target_flag="joint", 
@@ -402,25 +402,25 @@ class FRCobot(object):
             joint_pos_ref = self.GetJointPos()
             target_joint_pos = self.IK(0, target_desc_pos, joint_pos_ref)
         else:
-            raise ValueError("无效的关键字")
+            raise ValueError("[WARNING] 无效的关键字")
 
         movej_ret = self.robot.MoveJ(target_joint_pos, target_desc_pos, tool, user, 
                          vel, acc, ovl, exaxis_pos, blendT, offset_flag, offset_pos)
         if movej_ret != 0:
-            print("MoveJ 失败,错误码:", movej_ret)
+            print("[ERROR] MoveJ 失败,错误码:", movej_ret)
             self.ResetAllError() # 尝试清除错误状态
             return # MoveJ()失败则直接结束
         
         getrbtmotiondone_ret = self.robot.GetRobotMotionDone()
         if getrbtmotiondone_ret[0] == 0:
             if getrbtmotiondone_ret[1] == 1:
-                print("MoveJ 运行成功")
+                print("[INFO] MoveJ 运行成功")
             else:
-                print("MoveJ 运行未完成")
+                print("[INFO] MoveJ 运行未完成")
                 self.ResetAllError() # 尝试清除错误状态
                 return # MoveJ()未完成则直接结束
         else:
-            print("MoveJ 失败,错误码:", getrbtmotiondone_ret[0])
+            print("[ERROR] MoveJ 失败,错误码:", getrbtmotiondone_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return # MoveJ()失败则直接结束
     
@@ -473,24 +473,75 @@ class FRCobot(object):
             joint_pos_ref = self.GetJointPos()
             target_joint_pos = self.IK(0, target_desc_pos, joint_pos_ref)
         else:
-            raise ValueError("无效的关键字")
+            raise ValueError("[WARNING] 无效的关键字")
 
         movel_ret = self.robot.MoveL(target_joint_pos, target_desc_pos, tool, user, 
                          vel, acc, ovl, blendR, exaxis_pos, search, offset_flag, offset_pos)
         if movel_ret != 0:
-            print("MoveL 失败,错误码:", movel_ret)
+            print("[ERROR] MoveL 失败,错误码:", movel_ret)
             self.ResetAllError() # 尝试清除错误状态
             return # MoveL()失败则直接结束
         
         getrbtmotiondone_ret = self.robot.GetRobotMotionDone()
         if getrbtmotiondone_ret[0] == 0:
             if getrbtmotiondone_ret[1] == 1:
-                print("MoveL 运行成功")
+                print("[INFO] MoveL 运行成功")
             else:
-                print("MoveL 运行未完成")
+                print("[INFO] MoveL 运行未完成")
                 self.ResetAllError() # 尝试清除错误状态
                 return # MoveL()未完成则直接结束
         else:
-            print("MoveL 失败,错误码:", getrbtmotiondone_ret[0])
+            print("[ERROR] MoveL 失败,错误码:", getrbtmotiondone_ret[0])
             self.ResetAllError() # 尝试清除错误状态
             return # MoveL()失败则直接结束
+
+
+    def MoveJSeq(self, target_pos_seq, time_period=0.008, n_granularity=10):
+        """
+        功能: 控制机器人关节空间运动到一系列目标位置
+
+        参数:
+            target_pos_seq ('list[list[float]]'): 
+                目标关节位置序列, [[j1,j2,j3,j4,j5,j6],...], 单位: deg
+            time_period ('float'): 
+                控制指令周期, 单位: s
+            n_granularity ('int'): 
+                关节运动颗粒度, 将相邻两个关节位置分成等间隔的n份
+        """
+
+        acc = 0.0   # 加速度百分比, 暂不开放, 默认为0.0
+        vel = 0.0   # 速度百分比, 暂不开放, 默认为0.0
+        filter_time = 0.0   # 滤波时间, 暂不开放, 默认为0.0
+        gain = 0.0  # 目标位置的比例放大器, 暂不开放, 默认为0.0
+
+        for index,target_pos in enumerate(target_pos_seq):
+            cur_jnt_values = np.asarray(self.robot.GetJointPos())
+            target_jnt_values = np.asarray(target_pos[index])
+
+            while not np.allclose(cur_jnt_values, target_jnt_values):
+                jnt_pos = np.linspace(cur_jnt_values, target_jnt_values, n_granularity)
+
+                jnt_pos = list(jnt_pos)
+                for i in range(6):
+                    jnt_pos[i] = float(jnt_pos[i])
+
+                servoj_ret = self.robot.ServoJ(jnt_pos, acc, vel, time_period, filter_time, gain)
+
+                if servoj_ret != 0:
+                    print("[ERROR] ServoJ 失败,错误码:", servoj_ret)
+                    self.ResetAllError() # 尝试清除错误状态
+                    return # ServoJ()失败则直接结束
+                
+                getrbtmotiondone_ret = self.robot.GetRobotMotionDone()
+                if getrbtmotiondone_ret[0] == 0:
+                    if getrbtmotiondone_ret[1] == 1:
+                        print("[INFO] ServoJ 运行成功")
+                    else:
+                        print("[INFO] ServoJ 运行未完成")
+                        self.ResetAllError() # 尝试清除错误状态
+                        return # ServoJ()未完成则直接结束
+                else:
+                    print("[ERROR] ServoJ 失败,错误码:", getrbtmotiondone_ret[0])
+                    self.ResetAllError() # 尝试清除错误状态
+                    return # ServoJ()失败则直接结束
+                
