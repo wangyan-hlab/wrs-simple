@@ -496,7 +496,7 @@ class FRCobot(object):
             return # MoveL()失败则直接结束
 
 
-    def MoveJSeq(self, target_pos_seq, time_period=0.008, n_granularity=10):
+    def MoveJSeq(self, target_pos_seq, time_period=0.008, granularity=0.1):
         """
         功能: 控制机器人关节空间运动到一系列目标位置
 
@@ -505,8 +505,8 @@ class FRCobot(object):
                 目标关节位置序列, [[j1,j2,j3,j4,j5,j6],...], 单位: deg
             time_period ('float'): 
                 控制指令周期, 单位: s
-            n_granularity ('int'): 
-                关节运动颗粒度, 将相邻两个关节位置分成等间隔的n份
+            granularity ('int'): 
+                关节运动颗粒度, 将相邻两个关节位置分成等间隔的n份, n = 1/granularity
         """
 
         acc = 0.0   # 加速度百分比, 暂不开放, 默认为0.0
@@ -514,34 +514,26 @@ class FRCobot(object):
         filter_time = 0.0   # 滤波时间, 暂不开放, 默认为0.0
         gain = 0.0  # 目标位置的比例放大器, 暂不开放, 默认为0.0
 
-        for index,target_pos in enumerate(target_pos_seq):
-            cur_jnt_values = np.asarray(self.robot.GetJointPos())
-            target_jnt_values = np.asarray(target_pos[index])
+        n = int(1/granularity)
+        target_pos_seq_interp = []
+        for i in range(6):
+            arr = np.asarray(target_pos_seq)[:, i]
+            expanded_arr = np.interp(np.linspace(0, len(arr) - 1, (len(arr)-1)*n+1), 
+                                     np.arange(len(arr)), arr)
+            target_pos_seq_interp.append(expanded_arr)
 
-            while not np.allclose(cur_jnt_values, target_jnt_values):
-                jnt_pos = np.linspace(cur_jnt_values, target_jnt_values, n_granularity)
+        target_pos_seq_smoothed  = np.asarray(target_pos_seq_interp).T    
 
-                jnt_pos = list(jnt_pos)
-                for i in range(6):
-                    jnt_pos[i] = float(jnt_pos[i])
+        for index, jnt_pos in enumerate(target_pos_seq_smoothed):
+            jnt_pos = list(jnt_pos)
+            for i in range(6):
+                jnt_pos[i] = float(jnt_pos[i])
 
-                servoj_ret = self.robot.ServoJ(jnt_pos, acc, vel, time_period, filter_time, gain)
+            print("[INFO] ServoJ 目标关节位置:", jnt_pos)
+            servoj_ret = self.robot.ServoJ(jnt_pos, acc, vel, time_period, filter_time, gain)
 
-                if servoj_ret != 0:
-                    print("[ERROR] ServoJ 失败,错误码:", servoj_ret)
-                    self.ResetAllError() # 尝试清除错误状态
-                    return # ServoJ()失败则直接结束
-                
-                getrbtmotiondone_ret = self.robot.GetRobotMotionDone()
-                if getrbtmotiondone_ret[0] == 0:
-                    if getrbtmotiondone_ret[1] == 1:
-                        print("[INFO] ServoJ 运行成功")
-                    else:
-                        print("[INFO] ServoJ 运行未完成")
-                        self.ResetAllError() # 尝试清除错误状态
-                        return # ServoJ()未完成则直接结束
-                else:
-                    print("[ERROR] ServoJ 失败,错误码:", getrbtmotiondone_ret[0])
-                    self.ResetAllError() # 尝试清除错误状态
-                    return # ServoJ()失败则直接结束
+            if servoj_ret != 0:
+                print("[ERROR] ServoJ 失败,错误码:", servoj_ret)
+                self.ResetAllError() # 尝试清除错误状态
+                return # ServoJ()失败则直接结束
                 

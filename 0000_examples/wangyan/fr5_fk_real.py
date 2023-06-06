@@ -1,5 +1,11 @@
+
 #%%
-import math
+# Set start and goal joint values
+start_jnts = [-111.817, -87.609, -118.858, -55.275, 107.847, 20.778]
+goal_jnts = [-126.658, -90.459, -127.047, -17.006, 73.267, 20.767]
+
+#%%
+# WRS planning simulation
 import time
 import numpy as np
 from visualization.panda import world as wd
@@ -15,8 +21,6 @@ def genSphere(pos, radius=0.005, rgba=None):
         rgba = [1, 0, 0, 1]
     gm.gen_sphere(pos=pos, radius=radius, rgba=rgba).attach_to(base)
 
-#%%
-# Simulation
 base = wd.World(cam_pos=[2, 2, 1], lookat_pos=[0, 0, 0.5], w=960, h=720)
 gm.gen_frame().attach_to(base)
 component_name = 'arm'
@@ -25,8 +29,8 @@ robot_s = fr5.FR5_robot(enable_cc=True, peg_attached=False)
 # robot_meshmodel = robot_s.gen_meshmodel(toggle_tcpcs=True)
 # robot_meshmodel.attach_to(base)
 
-start_conf = np.deg2rad([-149.73,-71.859,-110.819,-76.229,75.58,25.596])
-goal_conf = np.deg2rad([-95.584,-62.776,-113.588,-71.529,111.833,25.662])
+start_conf = np.deg2rad(start_jnts)
+goal_conf = np.deg2rad(goal_jnts)
 robot_s.fk(component_name, start_conf)
 robot_s.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.5]).attach_to(base)
 robot_s.fk(component_name, goal_conf)
@@ -68,16 +72,15 @@ taskMgr.doMethodLater(0.07, update, "update",
 base.setFrameRateMeter(True)
 base.run()
 
-
 #%%
 # Real robot
 from fr_python_sdk.frmove import FRCobot
 robot_r = FRCobot()
-real_robot = False
+real_robot = True
+
 #%%
 # Move to start_jnts
 if real_robot:
-    start_jnts = [-149.73,-71.859,-110.819,-76.229,75.58,25.596]
     robot_r.MoveJ(start_jnts)
 
 #%%
@@ -88,25 +91,29 @@ if real_robot:
     vel = 0.0
     lookahead_time = 0.0
     P = 0.0
+    path_deg = []
     for pose in path:
         pose = list(pose)
         for i in range(6):
             pose[i] = float(np.rad2deg(pose[i]))
         print("目标关节位置:", pose)
-    #     robot_r.robot.ServoJ(pose,acc,vel,t,lookahead_time,P)
+        path_deg.append(pose)
     
-    robot_r.MoveJSeq(path, n_granularity=30)
+    robot_r.MoveJSeq(path_deg, granularity=0.02)
+
+    print("关节差值: ", np.asarray(robot_r.GetJointPos()) - np.asarray(path_deg[-1]))
+    if np.allclose(np.asarray(robot_r.GetJointPos()), 
+                   np.asarray(path_deg[-1]), atol=1.0):
+        print("[INFO] ServoJ 运动到关节位置序列终点")
 
 #%%
 # Move to start_jnts
 if real_robot:
-    start_jnts = [-149.73,-71.859,-110.819,-76.229,75.58,25.596]
     robot_r.MoveJ(start_jnts)
 
 #%%
 # Move to goal_jnts
 if real_robot:
-    goal_jnts = [-95.584,-62.776,-113.588,-71.529,111.833,25.662]
     robot_r.MoveJ(goal_jnts)
 
 # %%
