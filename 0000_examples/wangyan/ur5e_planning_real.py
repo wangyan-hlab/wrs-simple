@@ -28,7 +28,7 @@ def run_realrobot(real_robot):
         robot_r.move_jnts(start_jnts)
     else:
         print("I am not a robot.")
-        time.sleep(5)
+        time.sleep(10)
         endtask = 1
     
     # Control real robot to reproduce the planned path
@@ -59,10 +59,10 @@ if __name__ == "__main__":
     start_conf = np.deg2rad(start_jnts)
     goal_conf = np.deg2rad(goal_jnts)
     robot_s.fk(component_name, start_conf)
-    robot_start = robot_s.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.5])
+    robot_start = robot_s.gen_meshmodel(toggle_tcpcs=True)
     robot_start.attach_to(base)
     robot_s.fk(component_name, goal_conf)
-    robot_goal = robot_s.gen_meshmodel(toggle_tcpcs=True, rgba=[0,1,0,0.5])
+    robot_goal = robot_s.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 1, 0, 0.3])
     robot_goal.attach_to(base)
     # planner
     time_start = time.time()
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                 rbtmnp[0].detach()
             pose = path[motioncounter[0]]
             robot.fk(armname, pose)
-            rbtmnp[0] = robot.gen_meshmodel(toggle_tcpcs=True)
+            rbtmnp[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[1, 0.5, 0, 0.7])
             rbtmnp[0].attach_to(base)
             tcp_ball = gm.gen_sphere(pos=robot.get_gl_tcp(component_name)[0], 
                                     radius=0.01, rgba=[1, 1, 0, 1])
