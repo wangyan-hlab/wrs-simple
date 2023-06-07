@@ -68,7 +68,7 @@ class UR5EBallPeg(ri.RobotInterface):
             intolist = intolist_arm
         self.cc.set_cdpair(fromlist, intolist)
         fromlist = [self.arm.lnks[2]]
-        intolist = [self.arm.lnks[4],
+        intolist_arm = [self.arm.lnks[4],
                     self.arm.lnks[5],
                     self.arm.lnks[6]]
         if self.peg_attached:
@@ -78,7 +78,7 @@ class UR5EBallPeg(ri.RobotInterface):
             intolist = intolist_arm
         self.cc.set_cdpair(fromlist, intolist)
         fromlist = [self.arm.lnks[3]]
-        intolist = [self.arm.lnks[6]]
+        intolist_arm = [self.arm.lnks[6]]
         if self.peg_attached:
             intolist_peg = [self.hnd.jlc.lnks[0]]
             intolist = intolist_arm + intolist_peg
