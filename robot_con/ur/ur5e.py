@@ -42,7 +42,7 @@ class UR5ERtqHE():
         self._jointscaler = 1e6
         self._pb = pb.ProgramBuilder()
         script_dir = os.path.dirname(__file__)
-        self._pb.load_prog(os.path.join(script_dir, "urscripts_cbseries/moderndriver_eseries.script"))
+        self._pb.load_prog(os.path.join(script_dir, "urscripts_eseries/moderndriver_eseries.script"))
         self._pc_server_urscript = self._pb.get_program_to_run()
         self._pc_server_urscript = self._pc_server_urscript.replace("parameter_ip", self._pc_server_socket_addr[0])
         self._pc_server_urscript = self._pc_server_urscript.replace("parameter_port",
@@ -51,7 +51,7 @@ class UR5ERtqHE():
                                                                     str(self._jointscaler))
         self._ftsensor_thread = None
         self._ftsensor_values = []
-        self.trajt = pwp.PiecewisePoly(method='quintic')
+        self.trajt = pwp.PiecewisePolyScl(method='quintic')
 
     @property
     def arm(self):
@@ -144,7 +144,10 @@ class UR5ERtqHE():
         regulated_jnt_values = rm.regulate_angle(-math.pi, math.pi, jnt_values)
         self.move_jnts(regulated_jnt_values)
 
-    def move_jntspace_path(self, path, control_frequency=.005, interval_time=1.0, interpolation_method=None):
+    def move_jntspace_path(self, path, control_frequency=.005, 
+                           max_vels=np.ones(6)*math.pi*0.1, 
+                           max_accs=np.ones(6)*math.pi*0.1, 
+                           interpolation_method=None):
         """
         move robot_s arm following a given jointspace path
         :param path:
@@ -158,7 +161,8 @@ class UR5ERtqHE():
         """
         if interpolation_method:
             self.trajt.change_method(interpolation_method)
-        interpolated_confs, _, _, _ = self.trajt.interpolate_by_time_interval(path, control_frequency, interval_time)
+        # interpolated_confs, _, _, _ = self.trajt.interpolate_by_time_interval(path, control_frequency, interval_time)
+        interpolated_confs = self.trajt.interpolate_by_max_spdacc(path, control_frequency, max_vels, max_accs)
         # upload a urscript to connect to the pc server started by this class
         self._arm.send_program(self._pc_server_urscript)
         # accept arm socket

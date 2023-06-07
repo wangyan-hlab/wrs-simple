@@ -461,7 +461,10 @@ def regulate_angle(lowerbound, upperbound, jntangles):
     else:
         rng = upperbound - lowerbound
         if rng >= 2 * np.pi:
-            jntangles = jntangles % -rng + rng if jntangles < lowerbound else jntangles % rng - rng
+            # print("jntangles=", jntangles)
+            # print("lowerbound=", lowerbound)
+            for jntangle in jntangles:
+                jntangle = jntangle % -rng + rng if jntangle < lowerbound else jntangle % rng - rng
         else:
             raise ValueError("upperbound-lowerbound must be multiplies of 2*np.pi or 360")
         return jntangles
