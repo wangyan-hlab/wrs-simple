@@ -22,7 +22,7 @@ class FR5_robot(ri.RobotInterface):
                  enable_cc=True, peg_attached=True, zrot_to_gndbase=np.radians(135)):
         super().__init__(pos=pos, rotmat=rotmat, name=name)
         this_dir, this_filename = os.path.split(__file__)
-        self.ground_base = jl.JLChain(pos=pos, rotmat=rotmat, homeconf=np.zeros(0), name="fr5_to_ground_base")
+        self.ground_base = jl.JLChain(pos=pos, rotmat=rotmat, homeconf=np.zeros(0), name="robot_to_ground_base")
         self.ground_base.jnts[0]['loc_pos'] = np.array([0, 0, 0])
         self.ground_base.lnks[0]['name'] = "ground_base"
         self.ground_base.lnks[0]['loc_pos'] = np.array([0, 0, 0])
@@ -47,7 +47,7 @@ class FR5_robot(ri.RobotInterface):
                                    rotmat=np.dot(self.arm.jnts[-1]['gl_rotmatq'], self.peg_rotmat),
                                    enable_cc=False)
             # tool center point
-            self.arm.tcp_jntid = -1
+            self.arm.tcp_jnt_id = -1
             self.arm.tcp_loc_pos = self.hnd.center_pos
             self.arm.tcp_loc_rotmat = self.hnd.center_rotmat
             # a list of detailed information about objects in hand, see CollisionChecker.add_objinhnd
@@ -119,8 +119,8 @@ class FR5_robot(ri.RobotInterface):
         self.cc.set_cdpair(fromlist, intolist)
         fromlist = [self.arm.lnks[2]]
         intolist_arm = [self.arm.lnks[4],
-                    self.arm.lnks[5],
-                    self.arm.lnks[6]]
+                        self.arm.lnks[5],
+                        self.arm.lnks[6]]
         if self.peg_attached:
             intolist_peg = [self.hnd.jlc.lnks[0]]
             intolist = intolist_arm + intolist_peg
@@ -190,7 +190,7 @@ class FR5_robot(ri.RobotInterface):
             if not isinstance(jnt_values, np.ndarray) or jnt_values.size != 6:
                 raise ValueError("An 1x6 npdarray must be specified to move the arm!")
             update_component(component_name, jnt_values)
-        elif component_name == "fr5_to_ground_base":
+        elif component_name == "robot_to_ground_base":
             self.ground_base.fk(jnt_values)
             self.arm.fix_to(pos=self.ground_base.jnts[0]['gl_posq'],
                             rotmat=np.dot(self.ground_base.jnts[0]['gl_rotmatq'],
