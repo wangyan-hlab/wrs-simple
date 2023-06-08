@@ -34,7 +34,19 @@ class InputManager(DirectObject):
                        "a": False,
                        "d": False,
                        "g": False,
-                       "r": False}
+                       "r": False,
+                       "t": False,
+                       "f": False,
+                       "v": False,
+                       "b": False,
+                       "y": False,
+                       "u": False,
+                       "h": False,
+                       "j": False,
+                       "n": False,
+                       "m": False,
+                       "z": False
+                       }
         self.accept("mouse1", self.__setkeys, ["mouse1", True])
         self.accept("mouse1-up", self.__setkeys, ["mouse1", False])
         self.accept("mouse2", self.__setkeys, ["mouse2", True])
@@ -57,6 +69,26 @@ class InputManager(DirectObject):
         self.accept("g-up", self.__setkeys, ["g", False])
         self.accept("r", self.__setkeys, ["r", True])
         self.accept("r-up", self.__setkeys, ["r", False])
+        self.accept("t", self.__setkeys, ["t", True])
+        self.accept("t-up", self.__setkeys, ["t", False])
+        self.accept("f", self.__setkeys, ["f", True])
+        self.accept("f-up", self.__setkeys, ["f", False])
+        self.accept("v", self.__setkeys, ["v", True])
+        self.accept("v-up", self.__setkeys, ["v", False])
+        self.accept("b", self.__setkeys, ["b", True])
+        self.accept("b-up", self.__setkeys, ["b", False])
+        self.accept("y", self.__setkeys, ["y", True])
+        self.accept("y-up", self.__setkeys, ["y", False])
+        self.accept("u", self.__setkeys, ["u", True])
+        self.accept("u-up", self.__setkeys, ["u", False])
+        self.accept("h", self.__setkeys, ["h", True])
+        self.accept("h-up", self.__setkeys, ["h", False])
+        self.accept("j", self.__setkeys, ["j", True])
+        self.accept("j-up", self.__setkeys, ["j", False])
+        self.accept("n", self.__setkeys, ["n", True])
+        self.accept("n-up", self.__setkeys, ["n", False])
+        self.accept("m", self.__setkeys, ["m", True])
+        self.accept("m-up", self.__setkeys, ["m", False])
         self.setup_interactiongeometries()
 
     def __setkeys(self, key, value):
@@ -283,8 +315,8 @@ class InputManager(DirectObject):
         author: weiwei
         date: 20200316
         """
-        if self.keymap["r"] is True:
-            self.keymap["r"] = False
+        if self.keymap["z"] is True:
+            self.keymap["z"] = False
             self.base.cam.setMat(self.original_cam_pdmat4)
             self.lookatpos_pdv3 = self.base.p3dh.npv3_to_pdv3(self.originallookatpos)
             self.update_trackplane()
