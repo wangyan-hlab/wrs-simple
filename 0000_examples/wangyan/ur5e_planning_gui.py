@@ -1,5 +1,3 @@
-import threading
-from threading import Thread, Lock, current_thread
 import time
 import numpy as np
 from visualization.panda.world import World
@@ -10,7 +8,7 @@ from motion.probabilistic import rrt_connect as rrtc
 from basis import robot_math as rm
 from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 from direct.gui.OnscreenText import OnscreenText
-from direct.gui.DirectGui import DirectButton
+from direct.gui.DirectGui import DirectButton, DirectOptionMenu, DirectSlider, DirectLabel
 
 class MyWorld(World):
 
@@ -21,19 +19,24 @@ class MyWorld(World):
         super().__init__(cam_pos, lookat_pos, up, fov, w, h, 
                          lens_type, toggle_debug, 
                          auto_cam_rotate, backgroundcolor)
-        self.create_button()
 
-        self.path = []
-        self.endplanningtask = 1
-        self.pathLock = Lock()
-        self.robot = None
+        self.path = []              # planning result
+        self.endplanningtask = 1    # flag to stop animation
+        self.robot = None           # real robot
+        self.robot_plan = None      # visual robot for animation
+        self.robot_teach = None     # visual robot for teaching
         self.robot_connect = None
         self.component_name = None
-        self.start_end_conf = []
-        self.start_meshmodel = None
+        self.start_end_conf = []    # saving teached start and goal confs
+        self.start_meshmodel = None 
         self.goal_meshmodel = None
         self.robot_meshmodel = None
-        self.target_conf = None
+        self.teaching_mode = 'Joint'
+        self.slider_values = []
+
+        self.create_button()
+        self.create_option_menu()
+        self.create_sliders()
 
 
     def set_ip(self, robot_ip, pc_ip):
@@ -42,31 +45,67 @@ class MyWorld(World):
 
     
     def create_button(self):
-        button_get_jnts = DirectButton(text="Get Joint Values", 
+        button_get_jnts = DirectButton(text="Get Joint Values",
+                                       text_pos=(0, -0.4),
                                        command=self.get_robot_jnts,
                                        scale=(0.05, 0.05, 0.05),
+                                       frameSize=(-5, 5, -1, 1),
                                        pos=(1, 0, 0.5))
         button_record_pose = DirectButton(text="Record Pose",
+                                          text_pos=(0, -0.4),
                                           command=self.record_robot_pose,
                                           scale=(0.05, 0.05, 0.05),
+                                          frameSize=(-5, 5, -1, 1),
                                           pos=(1, 0, 0.4))
         button_planning = DirectButton(text="Plan Path",
+                                       text_pos=(0, -0.4), 
                                        command=self.planning,
                                        scale=(0.05, 0.05, 0.05),
+                                       frameSize=(-5, 5, -1, 1),
                                        pos=(1, 0, 0.3))
         button_execute = DirectButton(text="Execute Path",
+                                      text_pos=(0, -0.4), 
                                       command=lambda: self.run_realrobot(self.robot_connect),
                                       scale=(0.05, 0.05, 0.05),
+                                      frameSize=(-5, 5, -1, 1),
                                       pos=(1, 0, 0.2))
 
     
+    def create_option_menu(self):
+        label = DirectLabel(text="Teaching Mode",
+                            scale=0.05,
+                            pos=(0.5, 0, 0.6))
+        options = ["Joint", "Cartesian"]
+        self.option_menu = DirectOptionMenu(text="Teaching Mode",
+                                            text_pos=(-1, -0.4),
+                                            scale=(0.05, 0.05, 0.05),
+                                            frameSize=(-5, 5, -1, 1),
+                                            pos=(1, 0, 0.6),
+                                            items=options,
+                                            initialitem=0)
+    
+
+    def create_sliders(self):
+        slider_values = [0, 0, 0, 0, 0, 0]  # 初始滑动条值
+        for i in range(6):
+            label = DirectLabel(text="Joint {}".format(i+1),
+                                scale=0.05,
+                                pos=(0.5, 0, 0.1 - i * 0.1))
+            slider = DirectSlider(range=(-180, 180),
+                                  value=slider_values[i],
+                                  scale=(0.3, 0.5, 0.2),
+                                  pos=(1, 0, 0.1 - i * 0.1),
+                                  extraArgs=[i])  # 传递滑动条索引作为额外参数
+            self.slider_values.append(slider)  # 存储滑动条实例
+
+
     def get_robot_jnts(self):
-        print("当前机器人关节位置:", np.rad2deg(self.robot.get_jnt_values()))
+        print("当前机器人关节位置(deg):", np.rad2deg(self.robot.get_jnt_values()))
         return self.robot.get_jnt_values()
     
     
     def record_robot_pose(self):
-        record_conf = self.robot.get_jnt_values()
+        record_conf = self.robot_teach.get_jnt_values()
         
         if len(self.start_end_conf) == 2:
             print("[Warning] 清空之前示教的起始点和目标点")
@@ -74,23 +113,22 @@ class MyWorld(World):
             self.goal_meshmodel.detach()
             self.start_end_conf = []
             self.start_end_conf.append(record_conf)
-            self.robot.fk(self.component_name, record_conf)
-            self.start_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.3])
+            self.robot_teach.fk(self.component_name, record_conf)
+            self.start_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.3])
             self.start_meshmodel.attach_to(self)
 
         elif len(self.start_end_conf) == 1:
             print("[Info] 已示教目标点")
             self.start_end_conf.append(record_conf)
-            self.target_conf = self.start_end_conf[1]
-            self.robot.fk(self.component_name, record_conf)
-            self.goal_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0,1,0,0.3])
+            self.robot_teach.fk(self.component_name, record_conf)
+            self.goal_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[0,1,0,0.3])
             self.goal_meshmodel.attach_to(self)
 
         elif len(self.start_end_conf) == 0:
             print("[Info] 已示教起始点")
             self.start_end_conf.append(record_conf)
-            self.robot.fk(self.component_name, record_conf)
-            self.start_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.3])
+            self.robot_teach.fk(self.component_name, record_conf)
+            self.start_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.3])
             self.start_meshmodel.attach_to(self)
 
         else:
@@ -102,24 +140,21 @@ class MyWorld(World):
             Motion planning
         """
 
-        if self.robot_meshmodel is not None:
-            self.robot_meshmodel.detach()
-
-        self.endplanningtask = 0
+        self.endplanningtask = 0    # flag to start animation
         time_start = time.time()
         if len(self.start_end_conf) == 2:
             [start_conf, goal_conf] = self.start_end_conf
-            rrtc_planner = rrtc.RRTConnect(base.robot)
+            rrtc_planner = rrtc.RRTConnect(base.robot_plan)
             self.path = rrtc_planner.plan(component_name=base.component_name,
-                                    start_conf=start_conf,
-                                    goal_conf=goal_conf,
-                                    obstacle_list=[],
-                                    ext_dist=0.1,
-                                    max_time=300)
+                                          start_conf=start_conf,
+                                          goal_conf=goal_conf,
+                                          obstacle_list=[],
+                                          ext_dist=0.05,
+                                          max_time=300)
             time_end = time.time()
             print("Planning time = ", time_end-time_start)
             print(len(self.path), self.path)
-            self.start_end_conf = []    # 规划完毕,清空起始点和目标点
+
             self.start_meshmodel.detach()
             self.goal_meshmodel.detach()
 
@@ -127,7 +162,7 @@ class MyWorld(World):
             rbtmnp = [None]
             motioncounter = [0]
             taskMgr.doMethodLater(0.1, self.update, "update",
-                                extraArgs=[rbtmnp, motioncounter, self.robot, self.path, self.component_name], 
+                                extraArgs=[rbtmnp, motioncounter, self.robot_plan, self.path, self.component_name], 
                                 appendTask=True)
             
         elif len(self.start_end_conf) == 1:
@@ -142,33 +177,41 @@ class MyWorld(World):
             Control the real robot
         """
 
-        if real_robot:
-            print("[Info] Robot connected")
-            # Real robot
-            robot_r = ur5e_real(robot_ip=self.robot_ip, pc_ip=self.pc_ip)
-            robot_r.move_jnts(np.rad2deg(self.path[0]))
-            # Control real robot to reproduce the planned path
-            self.pathLock.acquire()
-            if self.path:
-                robot_r.move_jntspace_path(self.path) # TODO:check
-            self.path = []
-            self.pathLock.release()
-            self.endplanningtask = 1
-            self.robot.fk(self.component_name, self.path[-1])
-            self.robot_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True)
-            self.robot_meshmodel.attach_to(base)
-        else:
-            print("[Info] Robot NOT connected")
-            print("[Info] 模拟真实机器人运行时间...")
-            time.sleep(5)
-            self.robot.fk(self.component_name, self.path[-1])
-            self.path = []
-            self.target_conf = None
-            self.robot_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True)
-            self.robot_meshmodel.attach_to(base) 
-            self.endplanningtask = 1
+        if self.path:
+            if self.robot_meshmodel is not None:
+                self.robot_meshmodel.detach()
+            if real_robot:
+                print("[Info] Robot connected")
+                self.endplanningtask = 1
+                self.robot.fk(self.component_name, self.path[-1])
+                self.robot_teach.fk(self.component_name, self.path[-1])
+                self.robot_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True)
+                self.robot_meshmodel.attach_to(base)
+                # Real robot
+                robot_r = ur5e_real(robot_ip=self.robot_ip, pc_ip=self.pc_ip)
+                robot_r.move_jnts(np.rad2deg(self.path[0]))
+                # Control real robot to reproduce the planned path
+                if self.path:
+                    robot_r.move_jntspace_path(self.path) # TODO:check
+                self.path = []
+                self.start_end_conf = []
+                
+            else:
+                print("[Info] Robot NOT connected")
+                self.endplanningtask = 1
+                self.robot.fk(self.component_name, self.path[-1])
+                self.robot_teach.fk(self.component_name, self.path[-1])
+                self.robot_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True)
+                self.robot_meshmodel.attach_to(base)
+                print("[Info] 模拟真实机器人运行时间...")
+                time.sleep(5)
+                self.path = []
+                self.start_end_conf = []
+            
+            print("[Info] 机器人运行结束")
         
-        print("[Info] 机器人运行结束")
+        else:
+            print("[Info] No path yet!")
 
 
     def update(self, rbtmnp, motioncounter, robot, path, armname, task):
@@ -199,19 +242,23 @@ class MyWorld(World):
             return task.again
 
 
-    def move_keyboard(self, rbtonscreen, robot, armname, mode, task):
+    def move_keyboard(self, rbtonscreen, robot, armname, task):
         """
             Use keyboard to control robot
         """
 
+        jnt_values = np.zeros(6)
+        for i in range(6):
+            jnt_values[i] = self.slider_values[i].getValue()
+        robot.fk(armname, np.deg2rad(jnt_values))
+        
         if rbtonscreen[0] is not None:
             rbtonscreen[0].detach()
+        self.teaching_mode = self.option_menu.get()
 
-        if mode == 'cart':
-            arm_linear_speed = .01
-            arm_angular_speed = .01
-            if self.target_conf is not None:
-                robot.fk(armname, self.target_conf)
+        if self.teaching_mode == 'Cartesian':
+            arm_linear_speed = 0.01
+            arm_angular_speed = np.deg2rad(1)
             cur_jnt_values = robot.get_jnt_values()
             cur_tcp_pos, cur_tcp_rotmat = robot.get_gl_tcp()
             rel_pos = np.zeros(3)
@@ -251,14 +298,13 @@ class MyWorld(World):
                 robot.fk(armname, new_jnt_values)
                 rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
                 rbtonscreen[0].attach_to(base)
+                for i in range(6):
+                    self.slider_values[i].setValue(np.rad2deg(new_jnt_values)[i])
             else:
                 raise NotImplementedError("IK is unsolved!")
             
-        elif mode == 'jnt':
-            jnt_angular_speed = .01
-            if self.target_conf is not None:
-                print("强制到达目标")
-                robot.fk(armname, self.target_conf)
+        elif self.teaching_mode == 'Joint':
+            jnt_angular_speed = np.deg2rad(1)
             cur_jnt_values = robot.get_jnt_values()
             rel_jnt = np.zeros(6)
 
@@ -293,6 +339,8 @@ class MyWorld(World):
                 robot.fk(armname, new_jnt_values)
                 rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
                 rbtonscreen[0].attach_to(base)
+                for i in range(6):
+                    self.slider_values[i].setValue(np.rad2deg(new_jnt_values)[i])
             else:
                 print("The given joint angles are out of joint limits.")
 
@@ -302,7 +350,7 @@ class MyWorld(World):
 if __name__ == "__main__":
     
     # WRS planning simulation
-    base = MyWorld(cam_pos=[2, 2, 1], lookat_pos=[0, 0, 0.5], w=960, h=720)
+    base = MyWorld(cam_pos=[3, 3, 1], lookat_pos=[0, .5, 0], w=1960, h=1280)
     gm.gen_frame().attach_to(base)
 
     ## Simulated robot
@@ -311,12 +359,10 @@ if __name__ == "__main__":
     base.robot_meshmodel = base.robot.gen_meshmodel()
     base.robot_meshmodel.attach_to(base)
 
-    ## Set start and goal joint values
-    # start_jnts = [-111.817, -87.609, -118.858, -55.275, 107.847, 20.778]
-    # goal_jnts = [-127.146, -74.498, -85.835, -40.605, 71.584, 20.790]
+    base.robot_teach = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
+    base.robot_plan = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
 
     base.robot_connect = False
-    teach_mode = 'jnt'
 
     if base.robot_connect:
         base.set_ip(robot_ip='192.168.58.2', pc_ip='192.168.58.70')
@@ -324,9 +370,8 @@ if __name__ == "__main__":
     # Keyboard movement control
     rbtonscreen = [None]
     taskMgr.doMethodLater(0.02, base.move_keyboard, "move_keyboard", 
-                        extraArgs=[rbtonscreen, base.robot, base.component_name, teach_mode], 
+                        extraArgs=[rbtonscreen, base.robot_teach, base.component_name], 
                         appendTask=True)
-
 
     base.setFrameRateMeter(True)
     base.run()
