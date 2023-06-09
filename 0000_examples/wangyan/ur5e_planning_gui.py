@@ -1,6 +1,5 @@
 import time
 import numpy as np
-from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 from robot_planning_gui import FastSimWorld
 
 class URFastSimWorld(FastSimWorld):
@@ -53,9 +52,10 @@ class URFastSimWorld(FastSimWorld):
 if __name__ == "__main__":
 
     from robot_sim.robots.ur5e_ballpeg import ur5e_ballpeg as ur5e
+    from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 
     # WRS planning simulation
-    robot_connect = True
+    robot_connect = False
     robot_ip = '192.168.58.2'
     pc_ip = '192.168.58.70'
 
@@ -68,8 +68,8 @@ if __name__ == "__main__":
         init_conf = np.zeros(6)
 
     base = URFastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
-    base.robot_r = robot_r
-    
+    if robot_connect:
+        base.robot_r = robot_r
     robot_s = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
     component = 'arm'
     base.set_robot(robot_s, component)
