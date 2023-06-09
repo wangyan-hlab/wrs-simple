@@ -15,14 +15,18 @@ class MyWorld(World):
     def __init__(self, cam_pos, lookat_pos, 
                  up=np.array([0, 0, 1]), fov=40, w=1920, h=1080, 
                  lens_type="perspective", toggle_debug=False, 
-                 auto_cam_rotate=False, backgroundcolor=None):
+                 auto_cam_rotate=False, backgroundcolor=None,
+                 robot_connect=False, 
+                 robot_ip='192.168.58.2', 
+                 pc_ip='192.168.58.70'):
         super().__init__(cam_pos, lookat_pos, up, fov, w, h, 
                          lens_type, toggle_debug, 
                          auto_cam_rotate, backgroundcolor)
 
         self.path = []              # planning result
         self.endplanningtask = 1    # flag to stop animation
-        self.robot = None           # real robot
+        self.robot = None           # sim robot
+        self.robot_r = None         # real robot
         self.robot_plan = None      # visual robot for animation
         self.robot_teach = None     # visual robot for teaching
         self.robot_connect = None
@@ -33,15 +37,21 @@ class MyWorld(World):
         self.robot_meshmodel = None
         self.teaching_mode = 'Joint'
         self.slider_values = []
+        self.robot_connect = robot_connect
+        self.robot_ip = robot_ip
+        self.pc_ip = pc_ip
+
+        if self.robot_connect:
+            print("[Info] 机器人已连接")
+            self.robot_r = ur5e_real(robot_ip=self.robot_ip, pc_ip=self.pc_ip)
+            self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+        else:
+            print("[Info] 机器人未连接")
+            self.init_conf = np.zeros(6)
 
         self.create_button()
         self.create_option_menu()
         self.create_sliders()
-
-
-    def set_ip(self, robot_ip, pc_ip):
-        self.robot_ip = robot_ip    # '192.168.58.2'
-        self.pc_ip = pc_ip          # '192.168.58.70'
 
     
     def create_button(self):
@@ -86,7 +96,8 @@ class MyWorld(World):
     
 
     def create_sliders(self):
-        slider_values = [0, 0, 0, 0, 0, 0]  # 初始滑动条值
+        slider_init = np.rad2deg(self.init_conf)
+        slider_values = list(slider_init)  # 初始滑动条值
         for i in range(6):
             label = DirectLabel(text="Joint {}".format(i+1),
                                 scale=0.05,
@@ -188,11 +199,10 @@ class MyWorld(World):
                 self.robot_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True)
                 self.robot_meshmodel.attach_to(base)
                 # Real robot
-                robot_r = ur5e_real(robot_ip=self.robot_ip, pc_ip=self.pc_ip)
-                robot_r.move_jnts(np.rad2deg(self.path[0]))
+                self.robot_r.move_jnts(np.rad2deg(self.path[0]))
                 # Control real robot to reproduce the planned path
                 if self.path:
-                    robot_r.move_jntspace_path(self.path) # TODO:check
+                    self.robot_r.move_jntspace_path(self.path) # TODO:check
                 self.path = []
                 self.start_end_conf = []
                 
@@ -350,7 +360,11 @@ class MyWorld(World):
 if __name__ == "__main__":
     
     # WRS planning simulation
-    base = MyWorld(cam_pos=[3, 3, 1], lookat_pos=[0, .5, 0], w=1960, h=1280)
+    robot_connect = True
+    robot_ip = '192.168.58.2'
+    pc_ip = '192.168.58.70'
+    base = MyWorld(cam_pos=[3, 3, 1], lookat_pos=[0, .5, 0], w=1960, h=1280,
+                   robot_connect=robot_connect, robot_ip=robot_ip, pc_ip=pc_ip)
     gm.gen_frame().attach_to(base)
 
     ## Simulated robot
@@ -358,14 +372,17 @@ if __name__ == "__main__":
     base.robot = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
     base.robot_meshmodel = base.robot.gen_meshmodel()
     base.robot_meshmodel.attach_to(base)
-
     base.robot_teach = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
     base.robot_plan = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
 
-    base.robot_connect = False
-
     if base.robot_connect:
-        base.set_ip(robot_ip='192.168.58.2', pc_ip='192.168.58.70')
+        print("[Info] 机器人初始角度(deg): ", np.rad2deg(base.init_conf))
+        base.robot.fk(base.component_name, np.asarray(base.init_conf))
+
+        if base.robot_meshmodel is not None:
+            base.robot_meshmodel.detach()
+        base.robot_meshmodel = base.robot.gen_meshmodel()
+        base.robot_meshmodel.attach_to(base)
 
     # Keyboard movement control
     rbtonscreen = [None]
