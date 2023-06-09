@@ -5,9 +5,10 @@ from modeling import geometric_model as gm
 from modeling import collision_model as cm
 from motion.probabilistic import rrt_connect as rrtc
 from basis import robot_math as rm
-from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 from direct.gui.OnscreenText import OnscreenText
-from direct.gui.DirectGui import DirectButton, DirectOptionMenu, DirectSlider, DirectLabel
+from direct.gui.DirectGui import DirectButton, DirectOptionMenu, \
+        DirectSlider, DirectLabel, DirectEntry
+
 
 class FastSimWorld(World):
 
@@ -15,9 +16,8 @@ class FastSimWorld(World):
                  up=np.array([0, 0, 1]), fov=40, w=1920, h=1080, 
                  lens_type="perspective", toggle_debug=False, 
                  auto_cam_rotate=False, backgroundcolor=None,
-                 robot_connect=False, 
-                 robot_ip='192.168.58.2', 
-                 pc_ip='192.168.58.70'):
+                 robot_connect=False,
+                 init_conf=np.zeros(6)):
         super().__init__(cam_pos, lookat_pos, up, fov, w, h, 
                          lens_type, toggle_debug, 
                          auto_cam_rotate, backgroundcolor)
@@ -39,9 +39,8 @@ class FastSimWorld(World):
         self.teaching_mode = 'Joint'
         self.slider_values = []
         self.robot_connect = robot_connect
-        self.robot_ip = robot_ip
-        self.pc_ip = pc_ip
-        self.init_conf = np.zeros(6)
+        self.init_conf = init_conf
+        self.real_robot_conf = np.zeros(6)
 
         self.create_button()
         self.create_option_menu()
@@ -100,13 +99,49 @@ class FastSimWorld(World):
                                   value=slider_values[i],
                                   scale=(0.3, 0.5, 0.2),
                                   pos=(1, 0, -0.1 - i * 0.1),
+                                  command=self.slider_changed,
                                   extraArgs=[i])  # 传递滑动条索引作为额外参数
-            self.slider_values.append(slider)  # 存储滑动条实例
+            entry = DirectEntry(text='',
+                                scale=0.05,
+                                width=5,
+                                pos=(1.4, 0, -0.1 - i * 0.1),
+                                focus=0,
+                                focusInCommand=self.entry_focused,
+                                focusInExtraArgs=[i],
+                                focusOutCommand=self.entry_blurred,
+                                command=self.update_slider_value,
+                                extraArgs=[i])
+
+            self.slider_values.append([slider, entry])  # 存储滑动条和文本框的实例
+
+
+    def slider_changed(self, slider_index):
+        [slider, entry] = self.slider_values[slider_index]
+        value = round(slider.getValue(), 3)
+        entry.enterText(str(value))  # 更新文本框的值
+
+
+    def entry_focused(self, slider_index):
+        self.accept('enter', self.update_slider_value, extraArgs=[slider_index])
+
+
+    def entry_blurred(self):
+        self.ignore('enter')
+
+
+    def update_slider_value(self, slider_index):
+        slider, entry = self.slider_values[slider_index]
+        value_str = entry.get()
+        if value_str.isdigit():
+            value = float(value_str)
+            slider.setValue(value)
 
 
     def get_robot_jnts(self):
-        print("当前机器人关节位置(deg):", np.rad2deg(self.robot.get_jnt_values()))
-        return self.robot.get_jnt_values()
+        """
+            获取真实机器人关节角度
+        """
+        pass
     
     
     def record_robot_pose(self):
@@ -253,7 +288,7 @@ class FastSimWorld(World):
 
         jnt_values = np.zeros(6)
         for i in range(6):
-            jnt_values[i] = self.slider_values[i].getValue()
+            jnt_values[i] = self.slider_values[i][0].getValue()
         robot.fk(armname, np.deg2rad(jnt_values))
         
         if rbtonscreen[0] is not None:
@@ -303,7 +338,7 @@ class FastSimWorld(World):
                 rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
                 rbtonscreen[0].attach_to(base)
                 for i in range(6):
-                    self.slider_values[i].setValue(np.rad2deg(new_jnt_values)[i])
+                    self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
             else:
                 raise NotImplementedError("IK is unsolved!")
             
@@ -344,7 +379,7 @@ class FastSimWorld(World):
                 rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
                 rbtonscreen[0].attach_to(base)
                 for i in range(6):
-                    self.slider_values[i].setValue(np.rad2deg(new_jnt_values)[i])
+                    self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
             else:
                 print("The given joint angles are out of joint limits.")
 
@@ -388,8 +423,8 @@ if __name__ == "__main__":
     robot_connect = False
     robot_ip = '192.168.58.2'
     pc_ip = '192.168.58.70'
-
-    base = FastSimWorld(robot_connect=robot_connect, robot_ip=robot_ip, pc_ip=pc_ip)
+    init_conf = np.zeros(6)
+    base = FastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
     
     robot_s = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
     component = 'arm'
