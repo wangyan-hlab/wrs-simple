@@ -404,6 +404,10 @@ class FRCobot(object):
         else:
             raise ValueError("[WARNING] 无效的关键字")
 
+        target_joint_pos = list(target_joint_pos)
+        for i in range(6):
+            target_joint_pos[i] = float(target_joint_pos[i])
+
         movej_ret = self.robot.MoveJ(target_joint_pos, target_desc_pos, tool, user, 
                          vel, acc, ovl, exaxis_pos, blendT, offset_flag, offset_pos)
         if movej_ret != 0:
@@ -475,6 +479,10 @@ class FRCobot(object):
         else:
             raise ValueError("[WARNING] 无效的关键字")
 
+        target_joint_pos = list(target_joint_pos)
+        for i in range(6):
+            target_joint_pos[i] = float(target_joint_pos[i])
+        
         movel_ret = self.robot.MoveL(target_joint_pos, target_desc_pos, tool, user, 
                          vel, acc, ovl, blendR, exaxis_pos, search, offset_flag, offset_pos)
         if movel_ret != 0:
@@ -496,7 +504,7 @@ class FRCobot(object):
             return # MoveL()失败则直接结束
 
 
-    def MoveJSeq(self, target_pos_seq, time_period=0.008, granularity=0.1):
+    def MoveJSeq(self, target_pos_seq, time_period=0.008, t_wait=0.02, granularity=0.1):
         """
         功能: 控制机器人关节空间运动到一系列目标位置
 
@@ -531,6 +539,7 @@ class FRCobot(object):
 
             print("[INFO] ServoJ 目标关节位置:", jnt_pos)
             servoj_ret = self.robot.ServoJ(jnt_pos, acc, vel, time_period, filter_time, gain)
+            time.sleep(t_wait)
 
             if servoj_ret != 0:
                 print("[ERROR] ServoJ 失败,错误码:", servoj_ret)
