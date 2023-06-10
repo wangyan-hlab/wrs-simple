@@ -41,7 +41,10 @@ class FastSimWorld(World):
         self.robot_connect = robot_connect
         self.init_conf = init_conf
         self.real_robot_conf = np.zeros(6)
+        self.joint_limits = None
 
+        
+    def start(self):
         self.create_button()
         self.create_option_menu()
         self.create_sliders()
@@ -89,13 +92,17 @@ class FastSimWorld(World):
     
 
     def create_sliders(self):
+        if self.joint_limits is None:
+            self.joint_limits = [[-180,180],[-180,180],[-180,180],
+                                [-180,180],[-180,180],[-180,180]]
+            
         slider_init = np.rad2deg(self.init_conf)
         slider_values = list(slider_init)  # 初始滑动条值
         for i in range(6):
             label = DirectLabel(text="Joint {}".format(i+1),
                                 scale=0.05,
                                 pos=(0.5, 0, -0.1 - i * 0.1))
-            slider = DirectSlider(range=(-180, 180),
+            slider = DirectSlider(range=(self.joint_limits[i][0], self.joint_limits[i][1]),
                                   value=slider_values[i],
                                   scale=(0.3, 0.5, 0.2),
                                   pos=(1, 0, -0.1 - i * 0.1),
@@ -425,6 +432,7 @@ if __name__ == "__main__":
     pc_ip = '192.168.58.70'
     init_conf = np.zeros(6)
     base = FastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
+    base.start()
     
     robot_s = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
     component = 'arm'

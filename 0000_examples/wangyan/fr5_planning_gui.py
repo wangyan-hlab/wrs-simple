@@ -2,6 +2,7 @@ import time
 import numpy as np
 from robot_planning_gui import FastSimWorld
 
+
 class FRFastSimWorld(FastSimWorld):
 
     def __init__(self, cam_pos=[3, 3, 1], lookat_pos=[0, .5, 0],
@@ -14,6 +15,9 @@ class FRFastSimWorld(FastSimWorld):
                          lens_type, toggle_debug, 
                          auto_cam_rotate, backgroundcolor, 
                          robot_connect, init_conf)
+        
+        self.joint_limits = [[-175,175],[-265,85],[-160,160],
+                             [-265,85],[-175,175],[-175,175]]
         
 
     def get_robot_jnts(self):
@@ -68,6 +72,8 @@ if __name__ == "__main__":
         init_conf = np.zeros(6)
     
     base = FRFastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
+    base.start()
+    
     if robot_connect:
         base.robot_r = robot_r
     robot_s = fr5.FR5_robot(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)

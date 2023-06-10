@@ -68,6 +68,8 @@ if __name__ == "__main__":
         init_conf = np.zeros(6)
 
     base = URFastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
+    base.start()
+    
     if robot_connect:
         base.robot_r = robot_r
     robot_s = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
