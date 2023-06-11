@@ -7,7 +7,7 @@ from motion.probabilistic import rrt_connect as rrtc
 from basis import robot_math as rm
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.DirectGui import DirectButton, DirectOptionMenu, \
-        DirectSlider, DirectLabel, DirectEntry
+        DirectSlider, DirectLabel, DirectEntry, DirectFrame
 
 
 class FastSimWorld(World):
@@ -36,12 +36,17 @@ class FastSimWorld(World):
         self.start_meshmodel = None 
         self.goal_meshmodel = None
         self.robot_meshmodel = None
+        self.tcp_ball_meshmodel = []
         self.teaching_mode = 'Joint'
         self.slider_values = []
         self.robot_connect = robot_connect
         self.init_conf = init_conf
         self.real_robot_conf = np.zeros(6)
         self.joint_limits = None
+
+        self.frame = DirectFrame(frameColor=(0, 0.5, 0.7, 0.5),
+                                 pos=(0.5, 0, 0),
+                                 frameSize=(0, 1.8,-1, 1))
 
         
     def start(self):
@@ -56,39 +61,45 @@ class FastSimWorld(World):
                                        command=self.get_robot_jnts,
                                        scale=(0.05, 0.05, 0.05),
                                        frameSize=(-5, 5, -1, 1),
-                                       pos=(1, 0, 0.5))
+                                       pos=(0.7, 0, 0.5),
+                                       parent=self.frame)
         button_record_pose = DirectButton(text="Record Pose",
                                           text_pos=(0, -0.4),
                                           command=self.record_robot_pose,
                                           scale=(0.05, 0.05, 0.05),
                                           frameSize=(-5, 5, -1, 1),
-                                          pos=(1, 0, 0.4))
+                                          pos=(0.7, 0, 0.4),
+                                          parent=self.frame)
         button_planning = DirectButton(text="Plan Path",
                                        text_pos=(0, -0.4), 
                                        command=self.plan_path,
                                        scale=(0.05, 0.05, 0.05),
                                        frameSize=(-5, 5, -1, 1),
-                                       pos=(1, 0, 0.3))
+                                       pos=(0.7, 0, 0.3),
+                                       parent=self.frame)
         button_execute = DirectButton(text="Execute Path",
                                       text_pos=(0, -0.4), 
                                       command=lambda: self.execute_path(self.robot_connect),
                                       scale=(0.05, 0.05, 0.05),
                                       frameSize=(-5, 5, -1, 1),
-                                      pos=(1, 0, 0.2))
+                                      pos=(0.7, 0, 0.2),
+                                      parent=self.frame)
 
     
     def create_option_menu(self):
         label = DirectLabel(text="Teaching Mode",
                             scale=0.05,
-                            pos=(0.5, 0, 0.6))
+                            pos=(0.2, 0, 0.6),
+                            parent=self.frame)
         options = ["Joint", "Cartesian"]
         self.option_menu = DirectOptionMenu(text="Teaching Mode",
                                             text_pos=(-1, -0.4),
                                             scale=(0.05, 0.05, 0.05),
                                             frameSize=(-5, 5, -1, 1),
-                                            pos=(1, 0, 0.6),
+                                            pos=(0.7, 0, 0.6),
                                             items=options,
-                                            initialitem=0)
+                                            initialitem=0,
+                                            parent=self.frame)
     
 
     def create_sliders(self):
@@ -101,23 +112,26 @@ class FastSimWorld(World):
         for i in range(6):
             label = DirectLabel(text="Joint {}".format(i+1),
                                 scale=0.05,
-                                pos=(0.5, 0, -0.1 - i * 0.1))
+                                pos=(0.2, 0, -0.1 - i * 0.1),
+                                parent=self.frame)
             slider = DirectSlider(range=(self.joint_limits[i][0], self.joint_limits[i][1]),
                                   value=slider_values[i],
                                   scale=(0.3, 0.5, 0.2),
-                                  pos=(1, 0, -0.1 - i * 0.1),
+                                  pos=(0.7, 0, -0.1 - i * 0.1),
                                   command=self.slider_changed,
-                                  extraArgs=[i])  # 传递滑动条索引作为额外参数
+                                  extraArgs=[i],
+                                  parent=self.frame)  # 传递滑动条索引作为额外参数
             entry = DirectEntry(text='',
                                 scale=0.05,
-                                width=5,
-                                pos=(1.4, 0, -0.1 - i * 0.1),
+                                width=4,
+                                pos=(1.1, 0, -0.1 - i * 0.1),
                                 focus=0,
                                 focusInCommand=self.entry_focused,
                                 focusInExtraArgs=[i],
                                 focusOutCommand=self.entry_blurred,
                                 command=self.update_slider_value,
-                                extraArgs=[i])
+                                extraArgs=[i],
+                                parent=self.frame)
 
             self.slider_values.append([slider, entry])  # 存储滑动条和文本框的实例
 
@@ -231,6 +245,10 @@ class FastSimWorld(World):
         if self.path:
             if self.robot_meshmodel is not None:
                 self.robot_meshmodel.detach()
+            
+            for tcp_ball in self.tcp_ball_meshmodel:
+                tcp_ball.detach()
+
             if real_robot:
                 print("[Info] Robot connected")
                 self.endplanningtask = 1
@@ -257,7 +275,7 @@ class FastSimWorld(World):
             print("[Info] 机器人运行结束")
         
         else:
-            print("[Info] No path yet!")
+            print("[Info] No path provided!")
 
 
     def planning_animation(self, rbtmnp, motioncounter, robot, path, armname, task):
@@ -275,6 +293,7 @@ class FastSimWorld(World):
             rbtmnp[0].attach_to(base)
             tcp_ball = gm.gen_sphere(pos=robot.get_gl_tcp(armname)[0], 
                                     radius=0.01, rgba=[1, 1, 0, 1])
+            self.tcp_ball_meshmodel.append(tcp_ball)
             tcp_ball.attach_to(base)
             motioncounter[0] += 1
         else:
@@ -282,6 +301,7 @@ class FastSimWorld(World):
 
         if self.endplanningtask == 1:
             rbtmnp[0].detach()
+            tcp_ball.detach()
             print("[Info] Animation 结束")
             return task.done
         else:
