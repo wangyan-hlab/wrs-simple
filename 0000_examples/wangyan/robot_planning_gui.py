@@ -44,7 +44,7 @@ class FastSimWorld(World):
         self.real_robot_conf = np.zeros(6)
         self.joint_limits = None
 
-        self.frame = DirectFrame(frameColor=(0, 0.5, 0.7, 0.5),
+        self.frame = DirectFrame(frameColor=(0, 0.5, 0.5, 0.2),
                                  pos=(0.5, 0, 0),
                                  frameSize=(0, 1.8,-1, 1))
 
@@ -90,7 +90,8 @@ class FastSimWorld(World):
         label = DirectLabel(text="Teaching Mode",
                             scale=0.05,
                             pos=(0.2, 0, 0.6),
-                            parent=self.frame)
+                            parent=self.frame,
+                            frameColor=(1, 1, 1, 0.1))
         options = ["Joint", "Cartesian"]
         self.option_menu = DirectOptionMenu(text="Teaching Mode",
                                             text_pos=(-1, -0.4),
@@ -113,7 +114,8 @@ class FastSimWorld(World):
             label = DirectLabel(text="Joint {}".format(i+1),
                                 scale=0.05,
                                 pos=(0.2, 0, -0.1 - i * 0.1),
-                                parent=self.frame)
+                                parent=self.frame,
+                                frameColor=(1, 1, 1, 0.1))
             slider = DirectSlider(range=(self.joint_limits[i][0], self.joint_limits[i][1]),
                                   value=slider_values[i],
                                   scale=(0.3, 0.5, 0.2),
@@ -131,7 +133,8 @@ class FastSimWorld(World):
                                 focusOutCommand=self.entry_blurred,
                                 command=self.update_slider_value,
                                 extraArgs=[i],
-                                parent=self.frame)
+                                parent=self.frame,
+                                frameColor=(1, 1, 1, 1))
 
             self.slider_values.append([slider, entry])  # 存储滑动条和文本框的实例
 
