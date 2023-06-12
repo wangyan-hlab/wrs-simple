@@ -44,7 +44,7 @@ class FRFastSimWorld(FastSimWorld):
         self.robot_meshmodel.attach_to(self)
 
     
-    def robot_move(self):
+    def real_robot_moving(self):
         """
             FR5 robot move
         """
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         base.robot_r = robot_r
     robot_s = fr5.FR5_robot(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
     component = 'arm'
-    base.set_robot(robot_s, component)
+    base.robot_modeling(robot_s, component)
     
     base.setFrameRateMeter(True)
     base.run()
