@@ -10,9 +10,9 @@ class FRCobot(object):
         Date: 2023/05/12
     """
 
-    def __init__(self, ip="192.168.58.2") -> None:
+    def __init__(self, robot_ip="192.168.58.2") -> None:
         
-        self.robot = RPC(ip)
+        self.robot = RPC(robot_ip)
 
 
     def ResetAllError(self):
