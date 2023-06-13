@@ -98,24 +98,26 @@ class FastSimWorld(World):
         """
             Creating frame widgets
         """
-
-        self.frame_main = DirectFrame(frameColor=(0, 0.5, 0.5, 0.2),
-                                 pos=(1, 0, 0),
-                                 frameSize=(0, 1,-1, 1))
         
-        self.frame_teaching = DirectFrame(frameColor=(0.5, 0.5, 0.5, 0.2),
+        self.frame_main = DirectFrame(frameColor=(0.5, 0.5, 0.5, 0.1),
                                  pos=(-1, 0, 0),
                                  frameSize=(-1, 0,-1, 1))
+
+        self.frame_cartesian = DirectFrame(frameColor=(0, 1, 0, 0.1),
+                                 pos=(0, 0, 0.),
+                                 frameSize=(-1, 0, 0, 1),
+                                 parent=self.frame_main)
         
-        self.frame_joint = DirectFrame(frameColor=(1, 1, 0, 0.2),
+        self.frame_middle = DirectFrame(frameColor=(1, 0, 0, 0.1),
+                                 pos=(0, 0, -0.3),
+                                 frameSize=(-1, 0, 0, 0.3),
+                                 parent=self.frame_main)
+        
+        self.frame_joint = DirectFrame(frameColor=(1, 1, 0, 0.1),
                                  pos=(0, 0, -0.3),
                                  frameSize=(-1, 0,-1, 0),
-                                 parent=self.frame_teaching)
-
-        self.frame_cartesian = DirectFrame(frameColor=(0, 1, 0, 0.2),
-                                 pos=(0, 0, 0.1),
-                                 frameSize=(-1, 0, 0, 1),
-                                 parent=self.frame_teaching)
+                                 parent=self.frame_main)
+        
 
     def create_button_gui(self):
         """
@@ -127,32 +129,32 @@ class FastSimWorld(World):
                     command=self.get_robot_jnts,
                     scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
-                    pos=(0.7, 0, 0.5),
-                    parent=self.frame_main)
+                    pos=(-0.7, 0, 0.2),
+                    parent=self.frame_middle)
         
         DirectButton(text="Record",
                     text_pos=(0, -0.4),
                     command=self.record_teaching,
                     scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
-                    pos=(0.7, 0, 0.4),
-                    parent=self.frame_main)
+                    pos=(-0.7, 0, 0.1),
+                    parent=self.frame_middle)
         
         DirectButton(text="Plan",
                     text_pos=(0, -0.4), 
                     command=self.plan_moving,
                     scale=(0.04, 0.04, 0.04),
-                    frameSize=(-5, 5, -1, 1),
-                    pos=(0.7, 0, 0.3),
-                    parent=self.frame_main)
+                    frameSize=(-3, 3, -1, 1),
+                    pos=(-0.2, 0, 0.2),
+                    parent=self.frame_middle)
         
         DirectButton(text="Execute",
                     text_pos=(0, -0.4), 
                     command=lambda: self.execute_moving(self.robot_connect),
                     scale=(0.04, 0.04, 0.04),
-                    frameSize=(-5, 5, -1, 1),
-                    pos=(0.7, 0, 0.2),
-                    parent=self.frame_main)
+                    frameSize=(-3, 3, -1, 1),
+                    pos=(-0.2, 0, 0.1),
+                    parent=self.frame_middle)
 
     
     def create_option_menu_gui(self):
@@ -160,20 +162,20 @@ class FastSimWorld(World):
             Creating option menu widgets
         """
 
-        DirectLabel(text="Teaching Mode",
+        DirectLabel(text="Frame",
                     scale=0.04,
-                    pos=(0.2, 0, 0.6),
-                    parent=self.frame_main,
+                    pos=(-0.85, 0, 0.9),
+                    parent=self.frame_cartesian,
                     frameColor=(1, 1, 1, 0.1))
         
-        options = ["Joint", "Cartesian"]
-        self.option_menu = DirectOptionMenu(text_pos=(-1, -0.4),
+        options = ["Base", "Tool"]
+        self.option_menu = DirectOptionMenu(text_pos=(1, -0.4),
                                             scale=(0.04, 0.04, 0.04),
-                                            frameSize=(-5, 5, -1, 1),
-                                            pos=(0.7, 0, 0.6),
+                                            frameSize=(0, 4, -1, 1),
+                                            pos=(-0.7, 0, 0.9),
                                             items=options,
                                             initialitem=0,
-                                            parent=self.frame_main)
+                                            parent=self.frame_cartesian)
     
 
     def create_joint_teaching_gui(self):
@@ -347,12 +349,21 @@ class FastSimWorld(World):
             rel_rpy[index-3] = arm_angular_speed * direction * .5
             rel_rotmat = rm.rotmat_from_euler(rel_rpy[0], rel_rpy[1], rel_rpy[2])
         
-        new_tcp_pos = cur_tcp_pos + rel_pos
-        new_tcp_rotmat = rel_rotmat.dot(cur_tcp_rotmat)
-        print(f"new_tcp_pos={new_tcp_pos}, new_tcp_rotmat={new_tcp_rotmat}")
+        self.robot_frame = self.option_menu.get()
+
+        if self.robot_frame == 'Base':
+            new_tcp_pos = cur_tcp_pos + rel_pos
+            new_tcp_rotmat = rel_rotmat.dot(cur_tcp_rotmat)
+        elif self.robot_frame == 'Tool':
+            rel_homomat = rm.homomat_from_posrot(rel_pos, rel_rotmat)
+            cur_tcp_homomat = rm.homomat_from_posrot(cur_tcp_pos, cur_tcp_rotmat)
+            new_tcp_homomat = cur_tcp_homomat.dot(rel_homomat)
+            new_tcp_pos = new_tcp_homomat[:3, 3]
+            new_tcp_rotmat = new_tcp_homomat[:3, :3]
+
         new_jnt_values = self.robot_teach.ik(tgt_pos=new_tcp_pos, 
-                                    tgt_rotmat=new_tcp_rotmat,
-                                    seed_jnt_values=cur_jnt_values)
+                                        tgt_rotmat=new_tcp_rotmat,
+                                        seed_jnt_values=cur_jnt_values)
         
         if new_jnt_values is not None:
             for i in range(6):
@@ -441,9 +452,6 @@ class FastSimWorld(World):
 
         print("[Info] Teaching enabled")
         rbtonscreen = [None]
-        taskMgr.doMethodLater(0.02, self.keyboard_teaching, "keyboard_teaching", 
-                        extraArgs=[rbtonscreen, self.robot_teach, self.component_name], 
-                        appendTask=True)
         taskMgr.doMethodLater(0.02, self.point_teaching, "point_teaching", 
                         extraArgs=[rbtonscreen, self.robot_teach, self.component_name], 
                         appendTask=True)
@@ -481,113 +489,6 @@ class FastSimWorld(World):
         else:
             print("The given joint angles are out of joint limits.")
  
-        return task.again
-
-    
-    def keyboard_teaching(self, rbtonscreen, robot, armname, task):
-        """
-            Use keyboard to control robot
-        """
-
-        #TODO: change to icon-control
-        jnt_values = np.zeros(6)
-        for i in range(6):
-            jnt_values[i] = self.slider_values[i][0].getValue()
-        robot.fk(armname, np.deg2rad(jnt_values))
-        
-        if rbtonscreen[0] is not None:
-            rbtonscreen[0].detach()
-        self.teaching_mode = self.option_menu.get()
-
-        if self.teaching_mode == 'Cartesian':
-            arm_linear_speed = 0.01
-            arm_angular_speed = np.deg2rad(1)
-            cur_jnt_values = robot.get_jnt_values()
-            cur_tcp_pos, cur_tcp_rotmat = robot.get_gl_tcp()
-            rel_pos = np.zeros(3)
-            rel_rotmat = np.eye(3)
-
-            if base.inputmgr.keymap['r']:
-                rel_pos = np.array([arm_linear_speed * .5, 0, 0])
-            elif base.inputmgr.keymap['t']:
-                rel_pos = np.array([-arm_linear_speed * .5, 0, 0])
-            elif base.inputmgr.keymap['f']:
-                rel_pos = np.array([0, arm_linear_speed * .5, 0])
-            elif base.inputmgr.keymap['g']:
-                rel_pos = np.array([0, -arm_linear_speed * .5, 0])
-            elif base.inputmgr.keymap['v']:
-                rel_pos = np.array([0, 0, arm_linear_speed * .5])
-            elif base.inputmgr.keymap['b']:
-                rel_pos = np.array([0, 0, -arm_linear_speed * .5])
-            elif base.inputmgr.keymap['y']:
-                rel_rotmat = rm.rotmat_from_euler(arm_angular_speed * .5, 0, 0)
-            elif base.inputmgr.keymap['u']:
-                rel_rotmat = rm.rotmat_from_euler(-arm_angular_speed * .5, 0, 0)
-            elif base.inputmgr.keymap['h']:
-                rel_rotmat = rm.rotmat_from_euler(0, arm_angular_speed * .5, 0)
-            elif base.inputmgr.keymap['j']:
-                rel_rotmat = rm.rotmat_from_euler(0, -arm_angular_speed * .5, 0)
-            elif base.inputmgr.keymap['n']:
-                rel_rotmat = rm.rotmat_from_euler(0, 0, arm_angular_speed * .5)
-            elif base.inputmgr.keymap['m']:
-                rel_rotmat = rm.rotmat_from_euler(0, 0, -arm_angular_speed * .5)
-
-            new_tcp_pos = cur_tcp_pos + rel_pos
-            new_tcp_rotmat = rel_rotmat.dot(cur_tcp_rotmat)
-            print(f"[keyboard] new_tcp_pos={new_tcp_pos}, new_tcp_rotmat={new_tcp_rotmat}")
-            new_jnt_values = robot.ik(tgt_pos=new_tcp_pos, 
-                                    tgt_rotmat=new_tcp_rotmat,
-                                    seed_jnt_values=cur_jnt_values)
-            if new_jnt_values is not None:
-                robot.fk(armname, new_jnt_values)
-                rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
-                rbtonscreen[0].attach_to(base)
-                for i in range(6):
-                    self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
-            else:
-                print("[Warning-keyboard] IK is unsolved!")
-            
-        elif self.teaching_mode == 'Joint':
-            jnt_angular_speed = np.deg2rad(1)
-            cur_jnt_values = robot.get_jnt_values()
-            rel_jnt = np.zeros(6)
-
-            if base.inputmgr.keymap['r']:
-                rel_jnt = np.array([jnt_angular_speed * .5, 0, 0, 0, 0, 0])
-            elif base.inputmgr.keymap['t']:
-                rel_jnt = np.array([-jnt_angular_speed * .5, 0, 0, 0, 0, 0])
-            elif base.inputmgr.keymap['f']:
-                rel_jnt = np.array([0, jnt_angular_speed * .5, 0, 0, 0, 0])
-            elif base.inputmgr.keymap['g']:
-                rel_jnt = np.array([0, -jnt_angular_speed * .5, 0, 0, 0, 0])
-            elif base.inputmgr.keymap['v']:
-                rel_jnt = np.array([0, 0, jnt_angular_speed * .5, 0, 0, 0])
-            elif base.inputmgr.keymap['b']:
-                rel_jnt = np.array([0, 0, -jnt_angular_speed * .5, 0, 0, 0])
-            elif base.inputmgr.keymap['y']:
-                rel_jnt = np.array([0, 0, 0, jnt_angular_speed * .5, 0, 0])
-            elif base.inputmgr.keymap['u']:
-                rel_jnt = np.array([0, 0, 0, -jnt_angular_speed * .5, 0, 0])
-            elif base.inputmgr.keymap['h']:
-                rel_jnt = np.array([0, 0, 0, 0, jnt_angular_speed * .5, 0])
-            elif base.inputmgr.keymap['j']:
-                rel_jnt = np.array([0, 0, 0, 0, -jnt_angular_speed * .5, 0])
-            elif base.inputmgr.keymap['n']:
-                rel_jnt = np.array([0, 0, 0, 0, 0, jnt_angular_speed * .5])
-            elif base.inputmgr.keymap['m']:
-                rel_jnt = np.array([0, 0, 0, 0, 0, -jnt_angular_speed * .5])
-
-            new_jnt_values = cur_jnt_values + rel_jnt
-
-            if robot.is_jnt_values_in_ranges(self.component_name, new_jnt_values):
-                robot.fk(armname, new_jnt_values)
-                rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
-                rbtonscreen[0].attach_to(base)
-                for i in range(6):
-                    self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
-            else:
-                print("[Warning] The given joint angles are out of joint limits.")
-
         return task.again
     
 
