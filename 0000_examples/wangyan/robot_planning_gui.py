@@ -70,7 +70,30 @@ class FastSimWorld(World):
 
     
     """
-        GUI
+        任务管理器模块
+    """
+    def save_task(self):
+        """
+            Exporting modeling, teaching, and moving data
+        """
+        
+        self.save_modeling()
+        self.save_teaching()
+        self.save_moving()
+
+    
+    def load_task(self):
+        """
+            Importing modeling, teaching, and moving data
+        """
+
+        self.load_modeling()
+        self.load_teaching()
+        self.load_moving()
+
+
+    """
+        GUI模块
     """
     def create_button_gui(self):
         """
@@ -181,14 +204,14 @@ class FastSimWorld(World):
 
     def get_robot_jnts(self):
         """
-            获取真实机器人关节角度
+            Get real robot joint values
         """
 
         pass
     
 
     """
-        MODELING
+        MODELING - 模型构建模块
     """
     def static_modeling(self):
         """
@@ -249,7 +272,7 @@ class FastSimWorld(World):
 
     
     """
-        TEACHING
+        TEACHING - 点位示教模块
     """
 
     def enable_teaching(self):
@@ -468,7 +491,7 @@ class FastSimWorld(World):
 
 
     """
-        MOVING
+        MOVING - 运动规划执行模块
     """
     def plan_moving(self):
         """
