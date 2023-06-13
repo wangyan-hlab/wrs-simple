@@ -5,7 +5,7 @@ from robot_planning_gui import FastSimWorld
 
 class FRFastSimWorld(FastSimWorld):
 
-    def __init__(self, cam_pos=[3, 3, 1], lookat_pos=[0, .5, 0],
+    def __init__(self, cam_pos=[3, 3, 1], lookat_pos=[0, -.5, 0],
                  up=np.array([0, 0, 1]), fov=40, w=1920, h=1080, 
                  lens_type="perspective", toggle_debug=False, 
                  auto_cam_rotate=False, backgroundcolor=None,

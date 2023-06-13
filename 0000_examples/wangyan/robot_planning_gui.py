@@ -14,7 +14,7 @@ class FastSimWorld(World):
 
     def __init__(self, 
                  cam_pos=[3, 3, 1], 
-                 lookat_pos=[0, .5, 0],
+                 lookat_pos=[0, 0.5, 0],
                  up=np.array([0, 0, 1]), 
                  fov=40, w=1920, h=1080, 
                  lens_type="perspective", 
@@ -49,24 +49,23 @@ class FastSimWorld(World):
         self.tcp_ball_meshmodel = []
         self.teaching_mode = 'Joint'
         self.slider_values = []
+        self.tcp_values = []
         self.robot_connect = robot_connect
         self.init_conf = init_conf
         self.real_robot_conf = np.zeros(6)
         self.joint_limits = None
 
-        self.frame = DirectFrame(frameColor=(0, 0.5, 0.5, 0.2),
-                                 pos=(0.5, 0, 0),
-                                 frameSize=(0, 1.8,-1, 1))
-
         
     def start(self):
         """
-            Start the GUI
+            Start the simulator
         """
 
+        self.create_frame_gui()
         self.create_button_gui()
         self.create_option_menu_gui()
-        self.create_sliders_gui()
+        self.create_joint_teaching_gui()
+        self.create_cartesian_teaching_gui()
 
     
     """
@@ -95,6 +94,29 @@ class FastSimWorld(World):
     """
         GUI模块
     """
+    def create_frame_gui(self):
+        """
+            Creating frame widgets
+        """
+
+        self.frame_main = DirectFrame(frameColor=(0, 0.5, 0.5, 0.2),
+                                 pos=(1, 0, 0),
+                                 frameSize=(0, 1,-1, 1))
+        
+        self.frame_teaching = DirectFrame(frameColor=(0.5, 0.5, 0.5, 0.2),
+                                 pos=(-1, 0, 0),
+                                 frameSize=(-1, 0,-1, 1))
+        
+        self.frame_joint = DirectFrame(frameColor=(1, 1, 0, 0.2),
+                                 pos=(0, 0, -0.3),
+                                 frameSize=(-1, 0,-1, 0),
+                                 parent=self.frame_teaching)
+
+        self.frame_cartesian = DirectFrame(frameColor=(0, 1, 0, 0.2),
+                                 pos=(0, 0, 0.1),
+                                 frameSize=(-1, 0, 0, 1),
+                                 parent=self.frame_teaching)
+
     def create_button_gui(self):
         """
             Creating button widgets
@@ -103,34 +125,34 @@ class FastSimWorld(World):
         DirectButton(text="Get Joint Values",
                     text_pos=(0, -0.4),
                     command=self.get_robot_jnts,
-                    scale=(0.05, 0.05, 0.05),
+                    scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
                     pos=(0.7, 0, 0.5),
-                    parent=self.frame)
+                    parent=self.frame_main)
         
         DirectButton(text="Record",
                     text_pos=(0, -0.4),
                     command=self.record_teaching,
-                    scale=(0.05, 0.05, 0.05),
+                    scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
                     pos=(0.7, 0, 0.4),
-                    parent=self.frame)
+                    parent=self.frame_main)
         
         DirectButton(text="Plan",
                     text_pos=(0, -0.4), 
                     command=self.plan_moving,
-                    scale=(0.05, 0.05, 0.05),
+                    scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
                     pos=(0.7, 0, 0.3),
-                    parent=self.frame)
+                    parent=self.frame_main)
         
         DirectButton(text="Execute",
                     text_pos=(0, -0.4), 
                     command=lambda: self.execute_moving(self.robot_connect),
-                    scale=(0.05, 0.05, 0.05),
+                    scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
                     pos=(0.7, 0, 0.2),
-                    parent=self.frame)
+                    parent=self.frame_main)
 
     
     def create_option_menu_gui(self):
@@ -139,24 +161,24 @@ class FastSimWorld(World):
         """
 
         DirectLabel(text="Teaching Mode",
-                    scale=0.05,
+                    scale=0.04,
                     pos=(0.2, 0, 0.6),
-                    parent=self.frame,
+                    parent=self.frame_main,
                     frameColor=(1, 1, 1, 0.1))
         
         options = ["Joint", "Cartesian"]
         self.option_menu = DirectOptionMenu(text_pos=(-1, -0.4),
-                                            scale=(0.05, 0.05, 0.05),
+                                            scale=(0.04, 0.04, 0.04),
                                             frameSize=(-5, 5, -1, 1),
                                             pos=(0.7, 0, 0.6),
                                             items=options,
                                             initialitem=0,
-                                            parent=self.frame)
+                                            parent=self.frame_main)
     
 
-    def create_sliders_gui(self):
+    def create_joint_teaching_gui(self):
         """
-            Creating slider widgets
+            Creating joint teaching widgets
         """
 
         if self.joint_limits is None:
@@ -169,37 +191,174 @@ class FastSimWorld(World):
         for i in range(6):
 
             DirectLabel(text="Joint {}".format(i+1),
-                        scale=0.05,
-                        pos=(0.15, 0, -0.1 - i * 0.1),
-                        parent=self.frame,
+                        scale=0.035,
+                        pos=(-0.9, 0, -0.1 - i * 0.1),
+                        parent=self.frame_joint,
                         frameColor=(1, 1, 1, 0.1))
+            
+            DirectButton(text="-",
+                        text_pos=(0, -0.4),
+                        scale=(0.1, 0.04, 0.1),
+                        pos=(-0.8, 0, -0.08 - i * 0.1),
+                        frameSize=(-.3, .3, -.4, .0),
+                        command=self.update_joint_slider_value_gui,
+                        extraArgs=[i, -1],
+                        parent=self.frame_joint)
             
             slider = DirectSlider(range=(self.joint_limits[i][0], self.joint_limits[i][1]),
                                   value=slider_values[i],
-                                  scale=(0.3, 0.5, 0.2),
-                                  pos=(0.65, 0, -0.1 - i * 0.1),
-                                  command=self.update_entry_value_gui,
+                                  scale=(0.25, 0.5, 0.2),
+                                  pos=(-0.5, 0, -0.1 - i * 0.1),
+                                  command=self.update_joint_entry_value_gui,
                                   extraArgs=[i],
-                                  parent=self.frame)
+                                  parent=self.frame_joint)
+            
+            DirectButton(text="+",
+                        text_pos=(0, -0.4), 
+                        scale=(0.1, 0.04, 0.1),
+                        pos=(-0.2, 0, -0.08 - i * 0.1),
+                        frameSize=(-.3, .3, -.4, .0),
+                        command=self.update_joint_slider_value_gui,
+                        extraArgs=[i, 1],
+                        parent=self.frame_joint)
             
             entry = DirectEntry(text='',
-                                scale=0.05,
-                                width=3.5,
-                                pos=(1.06, 0, -0.1 - i * 0.1),
-                                parent=self.frame,
+                                scale=0.035,
+                                width=3,
+                                pos=(-0.15, 0, -0.1 - i * 0.1),
+                                parent=self.frame_joint,
                                 frameColor=(1, 1, 1, 1))
 
             self.slider_values.append([slider, entry])  # 存储滑动条和文本框的实例
 
 
-    def update_entry_value_gui(self, slider_index):
+    def update_joint_entry_value_gui(self, slider_index):
         """
-            Updating entry values according to slider values
+            Updating joint entry values according to joint slider values
         """
 
-        [slider, entry] = self.slider_values[slider_index]
-        value = round(slider.getValue(), 3)
+        slider, entry = self.slider_values[slider_index]
+        value = round(slider.getValue(), 2)
         entry.enterText(str(value))  # 更新文本框的值
+
+
+    def update_joint_slider_value_gui(self, slider_index, direction):
+        """
+            Updating joint slider values according to joint +/- button clicks
+        """
+
+        jnt_angular_speed = 1
+        slider, _ = self.slider_values[slider_index]
+        slider_value = slider.getValue()
+        slider_value += direction * jnt_angular_speed
+        slider.setValue(slider_value)
+
+    
+    def create_cartesian_teaching_gui(self):
+        """
+            Creating Cartesian teaching widgets
+        """
+
+        tcp_dof = ["X", "Y", "Z", "RX", "RY", "RZ"]
+        
+        for i in range(6):
+
+            DirectLabel(text=tcp_dof[i],
+                    scale=0.035,
+                    pos=(-0.8, 0, 0.8 - i * 0.1),
+                    parent=self.frame_cartesian,
+                    frameColor=(1, 1, 1, 0.1))
+
+            DirectButton(text="-",
+                        text_pos=(1, -0.2),
+                        scale=(0.1, 0.04, 0.1),
+                        pos=(-0.7, 0, 0.8 - i * 0.1),
+                        frameSize=(0, 2, -.4, .4),
+                        command=self.update_cartesian_entry_value_gui,
+                        extraArgs=[i, -1],
+                        parent=self.frame_cartesian)
+            
+            DirectButton(text="+",
+                        text_pos=(1, -0.2), 
+                        scale=(0.1, 0.04, 0.1),
+                        pos=(-0.5, 0, 0.8 - i * 0.1),
+                        frameSize=(0, 2, -.4, .4),
+                        command=self.update_cartesian_entry_value_gui,
+                        extraArgs=[i, 1],
+                        parent=self.frame_cartesian)
+            
+            if i in [0, 1, 2]:
+                DirectLabel(text=tcp_dof[i],
+                            scale=0.035,
+                            pos=(-0.85 + 0.3 * i, 0, 0.12),
+                            parent=self.frame_cartesian,
+                            frameColor=(1, 1, 1, 0.1))
+                
+                tcp_value_entry = DirectEntry(text='',
+                                        scale=0.035,
+                                        width=3.5,
+                                        pos=(-0.8 + 0.3 * i, 0, 0.12),
+                                        parent=self.frame_cartesian,
+                                        frameColor=(1, 1, 1, 1))
+            else:
+                DirectLabel(text=tcp_dof[i],
+                            scale=0.035,
+                            pos=(-0.85 + 0.3 * (i-3), 0, 0.05),
+                            parent=self.frame_cartesian,
+                            frameColor=(1, 1, 1, 0.1))
+                
+                tcp_value_entry = DirectEntry(text='',
+                                        scale=0.035,
+                                        width=3.5,
+                                        pos=(-0.8 + 0.3 * (i-3), 0, 0.05),
+                                        parent=self.frame_cartesian,
+                                        frameColor=(1, 1, 1, 1))
+            
+            DirectLabel(text="TCP Pose",
+                            scale=0.035,
+                            pos=(-0.85, 0, 0.19),
+                            parent=self.frame_cartesian,
+                            frameColor=(1, 1, 1, 0.1))
+
+            self.tcp_values.append(tcp_value_entry)
+
+
+    def update_cartesian_entry_value_gui(self, index, direction):
+        """
+            Updating joint slider values according to joint +/- button clicks
+        """
+
+        arm_linear_speed = 0.01
+        arm_angular_speed = np.deg2rad(1)
+
+        jnt_values = np.zeros(6)
+        for i in range(6):
+            jnt_values[i] = self.slider_values[i][0].getValue()
+        self.robot_teach.fk(self.component_name, np.deg2rad(jnt_values))
+
+        cur_jnt_values = self.robot_teach.get_jnt_values()
+        cur_tcp_pos, cur_tcp_rotmat= self.robot_teach.get_gl_tcp()
+        rel_pos = np.zeros(3)
+        rel_rpy = np.zeros(3)
+        rel_rotmat = np.eye(3)
+        if index in [0, 1, 2]:
+            rel_pos[index] = arm_linear_speed * direction * .5
+        else:
+            rel_rpy[index-3] = arm_angular_speed * direction * .5
+            rel_rotmat = rm.rotmat_from_euler(rel_rpy[0], rel_rpy[1], rel_rpy[2])
+        
+        new_tcp_pos = cur_tcp_pos + rel_pos
+        new_tcp_rotmat = rel_rotmat.dot(cur_tcp_rotmat)
+        print(f"new_tcp_pos={new_tcp_pos}, new_tcp_rotmat={new_tcp_rotmat}")
+        new_jnt_values = self.robot_teach.ik(tgt_pos=new_tcp_pos, 
+                                    tgt_rotmat=new_tcp_rotmat,
+                                    seed_jnt_values=cur_jnt_values)
+        
+        if new_jnt_values is not None:
+            for i in range(6):
+                self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
+        else:
+            print("[Warning] IK is unsolved!")
 
 
     def get_robot_jnts(self):
@@ -300,28 +459,28 @@ class FastSimWorld(World):
         for i in range(6):
             jnt_values[i] = self.slider_values[i][0].getValue()
         robot.fk(armname, np.deg2rad(jnt_values))
+        tcp_pos, tcp_rotmat = robot.get_gl_tcp()
 
         if rbtonscreen[0] is not None:
             rbtonscreen[0].detach()
 
-        jnt_angular_speed = np.deg2rad(1) #TODO:should be adjustable
         cur_jnt_values = robot.get_jnt_values()
-        rel_jnt = np.zeros(6)
-        #TODO: button-click controls rel_jnt
-        new_jnt_values = cur_jnt_values + rel_jnt
 
-        if robot.is_jnt_values_in_ranges(self.component_name, new_jnt_values):
-            robot.fk(armname, new_jnt_values)
+        if robot.is_jnt_values_in_ranges(self.component_name, cur_jnt_values):
             rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
             rbtonscreen[0].attach_to(base)
             for i in range(6):
-                self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
+                self.slider_values[i][0].setValue(np.rad2deg(cur_jnt_values)[i])
+                if i in [0, 1, 2]:
+                    value = round(tcp_pos[i]*1000, 2)
+                    self.tcp_values[i].enterText(str(value))
+                else:
+                    tcp_rpy = rm.rotmat_to_euler(tcp_rotmat)
+                    value = round(np.rad2deg(tcp_rpy[i-3]), 2)
+                    self.tcp_values[i].enterText(str(value))
         else:
             print("The given joint angles are out of joint limits.")
-        
-        #TODO: Cartesian-space teaching using buttons
-        #
-
+ 
         return task.again
 
     
@@ -375,6 +534,7 @@ class FastSimWorld(World):
 
             new_tcp_pos = cur_tcp_pos + rel_pos
             new_tcp_rotmat = rel_rotmat.dot(cur_tcp_rotmat)
+            print(f"[keyboard] new_tcp_pos={new_tcp_pos}, new_tcp_rotmat={new_tcp_rotmat}")
             new_jnt_values = robot.ik(tgt_pos=new_tcp_pos, 
                                     tgt_rotmat=new_tcp_rotmat,
                                     seed_jnt_values=cur_jnt_values)
@@ -385,7 +545,7 @@ class FastSimWorld(World):
                 for i in range(6):
                     self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
             else:
-                raise NotImplementedError("IK is unsolved!")
+                print("[Warning-keyboard] IK is unsolved!")
             
         elif self.teaching_mode == 'Joint':
             jnt_angular_speed = np.deg2rad(1)
@@ -426,7 +586,7 @@ class FastSimWorld(World):
                 for i in range(6):
                     self.slider_values[i][0].setValue(np.rad2deg(new_jnt_values)[i])
             else:
-                print("The given joint angles are out of joint limits.")
+                print("[Warning] The given joint angles are out of joint limits.")
 
         return task.again
     
