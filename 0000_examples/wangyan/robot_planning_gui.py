@@ -7,7 +7,7 @@ from motion.probabilistic import rrt_connect as rrtc
 from basis import robot_math as rm
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.DirectGui import DirectButton, DirectOptionMenu, \
-        DirectSlider, DirectLabel, DirectEntry, DirectFrame
+        DirectSlider, DirectLabel, DirectEntry, DirectDialog, DirectFrame
 
 
 class FastSimWorld(World):
@@ -45,15 +45,15 @@ class FastSimWorld(World):
         self.robot = None           # sim robot
         self.robot_r = None         # real robot
         self.robot_plan = None      # visual robot for animation
-        self.robot_teach = None     # visual robot for teaching
-        self.robot_connect = None
         self.component_name = None
+
+        self.robot_teach = None     # visual robot for teaching
+        self.teach_point_temp = []
         self.start_end_conf = []    # saving teaching start and goal points
         self.start_meshmodel = None 
         self.goal_meshmodel = None
         self.robot_meshmodel = None
         self.tcp_ball_meshmodel = []
-        self.teaching_mode = 'Joint'
         self.slider_values = []
         self.tcp_values = []
         self.robot_connect = robot_connect
@@ -140,7 +140,7 @@ class FastSimWorld(World):
         
         DirectButton(text="Record",
                     text_pos=(0, -0.4),
-                    command=self.record_teaching,
+                    command=self.record_button_clicked,
                     scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
                     pos=(-0.7, 0, 0.1),
@@ -378,6 +378,42 @@ class FastSimWorld(World):
             print("[Warning] IK is unsolved!")
 
 
+    def record_button_clicked(self):
+        """
+            Behaviors when record button clicked
+        """
+
+        self.record_dialog = DirectDialog(dialogName='Record Point',
+                              text='Enter the point name:',
+                              scale=(0.7, 0.7, 0.7),
+                              buttonTextList=['OK', 'Cancel'],
+                              buttonValueList=[1, 0],
+                              command=self.dialog_button_clicked)
+
+        entry = DirectEntry(scale=0.04,
+                            width=10,
+                            pos=(-0.2, 0, -0.1),
+                            initialText='',
+                            focus=1,
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.record_dialog)
+
+        self.record_entry = entry
+
+
+    def dialog_button_clicked(self, button_value):
+        """
+            Behaviors when 'Record Point' dialog buttons clicked
+        """
+        if button_value == 1:
+            record_name = self.record_entry.get()
+            print("Record name:", record_name)
+
+        else:
+            self.record_dialog.hide()
+            print("Record Point dialog closed")
+
+    
     def get_robot_jnts(self):
         """
             Get real robot joint values
@@ -695,7 +731,7 @@ class FastSimWorld(World):
     
 if __name__ == "__main__":
 
-    from robot_sim.robots.ur5e import ur5e as ur5e
+    from robot_sim.robots.ur5e import ur5e
 
     # WRS planning simulation
     robot_connect = False
@@ -705,7 +741,7 @@ if __name__ == "__main__":
     base = FastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
     base.start()
     
-    robot_s = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
+    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
     component = 'arm'
     base.robot_modeling(robot_s, component)
     
