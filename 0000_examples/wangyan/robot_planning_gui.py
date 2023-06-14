@@ -1,4 +1,6 @@
+import os
 import time
+import yaml
 import numpy as np
 from visualization.panda.world import World
 from modeling import geometric_model as gm
@@ -415,7 +417,10 @@ class FastSimWorld(World):
         if button_value == 1:
             record_name = self.record_entry.get()
             print("Record name:", record_name)
-            self.teach_point_temp[record_name] = self.robot_teach.get_jnt_values()
+            jnt_values = list(self.robot_teach.get_jnt_values())
+            for i in range(6):
+                jnt_values[i] = float(jnt_values[i])
+            self.teach_point_temp[record_name] = jnt_values
             print("teach_point_temp = ", self.teach_point_temp)
             self.record_teaching()
             self.record_dialog.hide()
@@ -713,7 +718,7 @@ class FastSimWorld(World):
             Deleting teaching point
         """
         
-        print("[TODO] deleting teaching")
+        print("[TODO] deleting points")
 
 
     def save_teaching(self):
@@ -721,12 +726,54 @@ class FastSimWorld(World):
             Exporting teaching point
         """
 
-        print("[TODO] exporting teaching")
+        print("[TODO] exporting points")
+
+        self.export_point_dialog = DirectDialog(dialogName='Export Points',
+                              text='Enter the filename:',
+                              scale=(0.7, 0.7, 0.7),
+                              buttonTextList=['OK', 'Cancel'],
+                              buttonValueList=[1, 0],
+                              command=self.export_point_dialog_button_clicked_gui)
+
+        entry = DirectEntry(scale=0.04,
+                            width=10,
+                            pos=(-0.2, 0, -0.1),
+                            initialText='',
+                            focus=1,
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.export_point_dialog)
+        
+        self.export_point_entry = entry
+
+        
+    def export_point_dialog_button_clicked_gui(self, button_value):
+        """
+            Behaviors when 'Export Point' dialog buttons clicked
+        """
+
+        if button_value == 1:
+            filename = self.export_point_entry.get()
+            
+            this_dir = os.path.split(__file__)[0]
+            dir = os.path.join(this_dir, 'config/points/')
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+            point_filepath = os.path.join(dir, f'{filename}.yaml')
+
+            with open(point_filepath, 'w', encoding='utf-8') as outfile:
+                yaml.dump(self.teach_point_temp, outfile, default_flow_style=False)
+
+            self.export_point_dialog.hide()
+            print("[Info] point yaml file saved")
+
+        else:
+            self.export_point_dialog.hide()
+            print("Export Point dialog closed")
 
 
     def load_teaching(self):
         """
-            Importing teaching point
+            Importing points
         """
 
         print("[TODO] importing teaching")
