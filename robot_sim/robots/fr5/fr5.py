@@ -11,7 +11,7 @@ import robot_sim.end_effectors.gripper.robotiq85.robotiq85 as rtq
 from panda3d.core import CollisionNode, CollisionBox, Point3
 import robot_sim.robots.robot_interface as ri
 
-class FR5_robot(ri.RobotInterface):
+class ROBOT(ri.RobotInterface):
 
     """
         author: wangyan
@@ -256,14 +256,14 @@ if __name__ == '__main__':
 
     base = wd.World(cam_pos=[2, -2, 1], lookat_pos=[0, 0, 0], w=960, h=720)
     gm.gen_frame().attach_to(base)
-    fr5 = FR5_robot()
+    fr5 = ROBOT()
     conf1 = np.radians([0, 0, 0, 0, 0, 20])
     fr5.fk(component_name="arm", jnt_values=conf1)
     print("collision=", fr5.is_collided())
     fr5.gen_meshmodel(toggle_tcpcs=True).attach_to(base)
 
     arm_jacobian_offset = np.array([0, 0, .145])
-    fr5 = FR5_robot(peg_attached=True)
+    fr5 = ROBOT(peg_attached=True)
     conf2 = np.radians([-93, -98, -73, -97, 90, 91])
     fr5.fk(component_name="arm", jnt_values=conf2)
     print("global_tcp=", fr5.get_gl_tcp())

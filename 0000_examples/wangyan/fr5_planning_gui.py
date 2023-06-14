@@ -76,7 +76,7 @@ if __name__ == "__main__":
     
     if robot_connect:
         base.robot_r = robot_r
-    robot_s = fr5.FR5_robot(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
+    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
     component = 'arm'
     base.robot_modeling(robot_s, component)
     

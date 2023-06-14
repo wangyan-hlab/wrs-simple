@@ -51,7 +51,7 @@ class URFastSimWorld(FastSimWorld):
 
 if __name__ == "__main__":
 
-    from robot_sim.robots.ur5e_ballpeg import ur5e_ballpeg as ur5e
+    from robot_sim.robots.ur5e import ur5e
     from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 
     # WRS planning simulation
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     
     if robot_connect:
         base.robot_r = robot_r
-    robot_s = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
+    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
     component = 'arm'
     base.robot_modeling(robot_s, component)
     

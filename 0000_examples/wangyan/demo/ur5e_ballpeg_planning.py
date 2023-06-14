@@ -4,7 +4,7 @@ import time
 import numpy as np
 import basis.robot_math as rm
 import robot_sim.robots.xarm_shuidi.xarm_shuidi as xa
-import robot_sim.robots.ur5e_ballpeg.ur5e_ballpeg as ur5e
+import robot_sim.robots.ur5e.ur5e as ur5e
 import visualization.panda.world as wd
 import modeling.geometric_model as gm
 from motion.probabilistic import rrt_connect as rrtc
@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     # robot_s
     component_name = 'arm'
-    robot_s = ur5e.UR5EBallPeg(enable_cc=True, peg_attached=False)
+    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
     robot_s.gen_meshmodel().attach_to(base)
     robot_s.show_cdprimit()
     # base.run()

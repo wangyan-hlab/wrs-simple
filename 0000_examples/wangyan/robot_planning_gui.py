@@ -11,6 +11,12 @@ from direct.gui.DirectGui import DirectButton, DirectOptionMenu, \
 
 
 class FastSimWorld(World):
+    """
+        A Fast Robot Simulator for teaching, planning, and executing
+
+        Author: wangyan
+        Date: 2023/06/14
+    """
 
     def __init__(self, 
                  cam_pos=[3, 3, 1], 
@@ -689,7 +695,7 @@ class FastSimWorld(World):
     
 if __name__ == "__main__":
 
-    from robot_sim.robots.ur5e_ballpeg import ur5e_ballpeg as ur5e
+    from robot_sim.robots.ur5e import ur5e as ur5e
 
     # WRS planning simulation
     robot_connect = False

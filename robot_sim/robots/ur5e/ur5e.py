@@ -11,7 +11,7 @@ import robot_sim.end_effectors.gripper.robotiq85.robotiq85 as rtq
 import robot_sim.robots.robot_interface as ri
 from panda3d.core import CollisionNode, CollisionBox, Point3
 
-class UR5EBallPeg(ri.RobotInterface):
+class ROBOT(ri.RobotInterface):
 
     """
         author: wangyan
@@ -243,7 +243,7 @@ if __name__ == '__main__':
 
     base = wd.World(cam_pos=[-2, -2, 1], lookat_pos=[0, 0, 0], w=960, h=720)
     gm.gen_frame().attach_to(base)
-    ur5e = UR5EBallPeg(enable_cc=True, peg_attached=True)
+    ur5e = ROBOT(enable_cc=True, peg_attached=True)
     conf = np.radians([90.91, -97.36, 113.41, -106.04, -90.0, 0.89])
     ur5e.fk(component_name="arm", jnt_values=conf)
     ur5e.gen_meshmodel(toggle_tcpcs=True).attach_to(base)
