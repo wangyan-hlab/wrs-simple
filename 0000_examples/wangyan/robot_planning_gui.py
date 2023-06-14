@@ -48,7 +48,7 @@ class FastSimWorld(World):
         self.component_name = None
 
         self.robot_teach = None     # visual robot for teaching
-        self.teach_point_temp = []
+        self.teach_point_temp = {}
         self.start_end_conf = []    # saving teaching start and goal points
         self.start_meshmodel = None 
         self.goal_meshmodel = None
@@ -72,6 +72,9 @@ class FastSimWorld(World):
         self.create_option_menu_gui()
         self.create_joint_teaching_gui()
         self.create_cartesian_teaching_gui()
+        self.create_point_mgr_menu_gui()
+        self.create_path_mgr_menu_gui()
+        self.create_model_mgr_menu_gui()
 
     
     """
@@ -124,6 +127,10 @@ class FastSimWorld(World):
                                  frameSize=(-1, 0,-1, 0),
                                  parent=self.frame_main)
         
+        self.frame_manager = DirectFrame(frameColor=(0, 0, 1, 0.1),
+                                 pos=(1, 0, 0.6),
+                                 frameSize=(0, 1, 0, 0.4))
+        
 
     def create_button_gui(self):
         """
@@ -140,7 +147,7 @@ class FastSimWorld(World):
         
         DirectButton(text="Record",
                     text_pos=(0, -0.4),
-                    command=self.record_button_clicked,
+                    command=self.record_button_clicked_gui,
                     scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
                     pos=(-0.7, 0, 0.1),
@@ -378,7 +385,7 @@ class FastSimWorld(World):
             print("[Warning] IK is unsolved!")
 
 
-    def record_button_clicked(self):
+    def record_button_clicked_gui(self):
         """
             Behaviors when record button clicked
         """
@@ -388,7 +395,7 @@ class FastSimWorld(World):
                               scale=(0.7, 0.7, 0.7),
                               buttonTextList=['OK', 'Cancel'],
                               buttonValueList=[1, 0],
-                              command=self.dialog_button_clicked)
+                              command=self.record_dialog_button_clicked_gui)
 
         entry = DirectEntry(scale=0.04,
                             width=10,
@@ -401,19 +408,143 @@ class FastSimWorld(World):
         self.record_entry = entry
 
 
-    def dialog_button_clicked(self, button_value):
+    def record_dialog_button_clicked_gui(self, button_value):
         """
             Behaviors when 'Record Point' dialog buttons clicked
         """
         if button_value == 1:
             record_name = self.record_entry.get()
             print("Record name:", record_name)
+            self.teach_point_temp[record_name] = self.robot_teach.get_jnt_values()
+            print("teach_point_temp = ", self.teach_point_temp)
+            self.record_teaching()
+            self.record_dialog.hide()
 
         else:
             self.record_dialog.hide()
             print("Record Point dialog closed")
 
     
+    def create_point_mgr_menu_gui(self):
+        """
+            Create the Point Manager menu
+        """
+        DirectLabel(text="Point Manager",
+                    scale=0.04,
+                    pos=(0.15, 0, 0.32),
+                    parent=self.frame_manager,
+                    frameColor=(1,1,1,0.5))
+        
+        self.point_mgr_menu_frame = DirectFrame(pos=(0,0,0),
+                                                frameSize=(0.02, 0.27, 0.02, 0.3),
+                                                frameColor=(0.8, 0.8, 0.8, 1),
+                                                sortOrder=1,
+                                                parent=self.frame_manager)
+        DirectButton(text="Delete",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.25),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.delete_teaching,
+                    parent=self.point_mgr_menu_frame)
+        
+        DirectButton(text="Export",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.16),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.save_teaching,
+                    parent=self.point_mgr_menu_frame)
+        
+        DirectButton(text="Import",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.07),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.load_teaching,
+                    parent=self.point_mgr_menu_frame)
+
+
+    def create_path_mgr_menu_gui(self):
+        """
+            Create the Path Manager menu
+        """
+        DirectLabel(text="Path Manager",
+                    scale=0.04,
+                    pos=(0.47, 0, 0.32),
+                    parent=self.frame_manager,
+                    frameColor=(1,1,1,0.5))
+        
+        self.path_mgr_menu_frame = DirectFrame(pos=(0.32,0,0),
+                                                frameSize=(0.02, 0.27, 0.02, 0.3),
+                                                frameColor=(0.8, 0.8, 0.8, 1),
+                                                sortOrder=1,
+                                                parent=self.frame_manager)
+        DirectButton(text="Delete",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.25),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.delete_moving,
+                    parent=self.path_mgr_menu_frame)
+        
+        DirectButton(text="Export",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.16),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.save_moving,
+                    parent=self.path_mgr_menu_frame)
+        
+        DirectButton(text="Import",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.07),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.load_moving,
+                    parent=self.path_mgr_menu_frame)
+
+
+    def create_model_mgr_menu_gui(self):
+        """
+            Create the Model Manager menu
+        """
+        DirectLabel(text="Model Manager",
+                    scale=0.04,
+                    pos=(0.79, 0, 0.32),
+                    parent=self.frame_manager,
+                    frameColor=(1,1,1,0.5))
+        
+        self.model_mgr_menu_frame = DirectFrame(pos=(0.64,0,0),
+                                                frameSize=(0.02, 0.27, 0.02, 0.3),
+                                                frameColor=(0.8, 0.8, 0.8, 1),
+                                                sortOrder=1,
+                                                parent=self.frame_manager)
+        DirectButton(text="Delete",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.25),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.delete_modeling,
+                    parent=self.model_mgr_menu_frame)
+        
+        DirectButton(text="Export",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.16),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.save_modeling,
+                    parent=self.model_mgr_menu_frame)
+        
+        DirectButton(text="Import",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.07),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.load_modeling,
+                    parent=self.model_mgr_menu_frame)
+
+
     def get_robot_jnts(self):
         """
             Get real robot joint values
@@ -467,12 +598,20 @@ class FastSimWorld(World):
         self.enable_teaching()
 
 
+    def delete_modeling(self):
+        """
+            Deleting models
+        """
+
+        print("[TODO] deleting model")
+
+
     def save_modeling(self):
         """
             Exporting models
         """
 
-        pass
+        print("[TODO] exporting model")
 
 
     def load_modeling(self):
@@ -480,7 +619,7 @@ class FastSimWorld(World):
             Importing models
         """
 
-        pass
+        print("[TODO] importing model")
 
     
     """
@@ -574,7 +713,7 @@ class FastSimWorld(World):
             Deleting teaching point
         """
         
-        pass
+        print("[TODO] deleting teaching")
 
 
     def save_teaching(self):
@@ -582,7 +721,7 @@ class FastSimWorld(World):
             Exporting teaching point
         """
 
-        pass
+        print("[TODO] exporting teaching")
 
 
     def load_teaching(self):
@@ -590,7 +729,7 @@ class FastSimWorld(World):
             Importing teaching point
         """
 
-        pass
+        print("[TODO] importing teaching")
 
 
     """
@@ -713,12 +852,19 @@ class FastSimWorld(World):
         pass
 
 
+    def delete_moving(self):
+        """
+            Deleting the path
+        """
+
+        print("[TODO] deleting path")
+
     def save_moving(self):
         """
             Exporting the path
         """
         
-        pass
+        print("[TODO] exporting path")
 
 
     def load_moving(self):
@@ -726,7 +872,7 @@ class FastSimWorld(World):
             Importing the path
         """
         
-        pass
+        print("[TODO] importing path")
 
     
 if __name__ == "__main__":
@@ -745,6 +891,6 @@ if __name__ == "__main__":
     component = 'arm'
     base.robot_modeling(robot_s, component)
     
-    base.setFrameRateMeter(True)
+    base.setFrameRateMeter(False)
     base.run()
     

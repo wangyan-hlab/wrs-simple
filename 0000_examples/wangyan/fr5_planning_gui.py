@@ -80,6 +80,5 @@ if __name__ == "__main__":
     component = 'arm'
     base.robot_modeling(robot_s, component)
     
-    base.setFrameRateMeter(True)
     base.run()
     
