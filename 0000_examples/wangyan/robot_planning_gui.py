@@ -1,6 +1,8 @@
 import os
 import time
 import yaml
+import tkinter as tk
+from tkinter import filedialog
 import numpy as np
 from visualization.panda.world import World
 from modeling import geometric_model as gm
@@ -10,6 +12,7 @@ from basis import robot_math as rm
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.DirectGui import DirectButton, DirectOptionMenu, \
         DirectSlider, DirectLabel, DirectEntry, DirectDialog, DirectFrame
+from panda3d.core import VirtualFileSystem as vfs
 
 
 class FastSimWorld(World):
@@ -62,6 +65,8 @@ class FastSimWorld(World):
         self.init_conf = init_conf
         self.real_robot_conf = np.zeros(6)
         self.joint_limits = None
+        
+        self.vfs = vfs.get_global_ptr()
 
         
     def start(self):
@@ -414,10 +419,13 @@ class FastSimWorld(World):
         """
             Behaviors when 'Record Point' dialog buttons clicked
         """
+
+        print("[Info] recording teaching")
+
         if button_value == 1:
             record_name = self.record_entry.get()
-            print("Record name:", record_name)
-            jnt_values = list(self.robot_teach.get_jnt_values())
+            print("Point name:", record_name)
+            jnt_values = list(np.rad2deg(self.robot_teach.get_jnt_values()))
             for i in range(6):
                 jnt_values[i] = float(jnt_values[i])
             self.teach_point_temp[record_name] = jnt_values
@@ -434,6 +442,7 @@ class FastSimWorld(World):
         """
             Create the Point Manager menu
         """
+
         DirectLabel(text="Point Manager",
                     scale=0.04,
                     pos=(0.15, 0, 0.32),
@@ -474,6 +483,7 @@ class FastSimWorld(World):
         """
             Create the Path Manager menu
         """
+
         DirectLabel(text="Path Manager",
                     scale=0.04,
                     pos=(0.47, 0, 0.32),
@@ -514,6 +524,7 @@ class FastSimWorld(World):
         """
             Create the Model Manager menu
         """
+
         DirectLabel(text="Model Manager",
                     scale=0.04,
                     pos=(0.79, 0, 0.32),
@@ -726,10 +737,10 @@ class FastSimWorld(World):
             Exporting teaching point
         """
 
-        print("[TODO] exporting points")
+        print("[Info] exporting points")
 
         self.export_point_dialog = DirectDialog(dialogName='Export Points',
-                              text='Enter the filename:',
+                              text='Export points to:',
                               scale=(0.7, 0.7, 0.7),
                               buttonTextList=['OK', 'Cancel'],
                               buttonValueList=[1, 0],
@@ -776,7 +787,20 @@ class FastSimWorld(World):
             Importing points
         """
 
-        print("[TODO] importing teaching")
+        print("[Info] importing teaching")
+        
+        root = tk.Tk()
+        root.withdraw()
+        filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
+                                              initialdir="./config/points")
+        if filepath:
+            print("导入的示教点文件:", filepath)
+
+            self.teach_point_temp = {}
+            with open(filepath, 'r', encoding='utf-8') as infile:
+                self.teach_point_temp = yaml.load(infile, Loader=yaml.FullLoader)
+
+            print("已导入示教点:", self.teach_point_temp)
 
 
     """
