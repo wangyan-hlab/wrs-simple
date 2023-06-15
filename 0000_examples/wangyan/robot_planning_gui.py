@@ -11,7 +11,8 @@ from motion.probabilistic import rrt_connect as rrtc
 from basis import robot_math as rm
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.DirectGui import DirectButton, DirectOptionMenu, \
-        DirectSlider, DirectLabel, DirectEntry, DirectDialog, DirectFrame
+        DirectSlider, DirectLabel, DirectEntry, DirectDialog, \
+        DirectFrame, DirectCheckButton
 from panda3d.core import VirtualFileSystem as vfs
 
 
@@ -154,7 +155,7 @@ class FastSimWorld(World):
         
         DirectButton(text="Record",
                     text_pos=(0, -0.4),
-                    command=self.record_button_clicked_gui,
+                    command=self.record_teaching,
                     scale=(0.04, 0.04, 0.04),
                     frameSize=(-5, 5, -1, 1),
                     pos=(-0.7, 0, 0.1),
@@ -391,52 +392,6 @@ class FastSimWorld(World):
         else:
             print("[Warning] IK is unsolved!")
 
-
-    def record_button_clicked_gui(self):
-        """
-            Behaviors when record button clicked
-        """
-
-        self.record_dialog = DirectDialog(dialogName='Record Point',
-                              text='Enter the point name:',
-                              scale=(0.7, 0.7, 0.7),
-                              buttonTextList=['OK', 'Cancel'],
-                              buttonValueList=[1, 0],
-                              command=self.record_dialog_button_clicked_gui)
-
-        entry = DirectEntry(scale=0.04,
-                            width=10,
-                            pos=(-0.2, 0, -0.1),
-                            initialText='',
-                            focus=1,
-                            frameColor=(1, 1, 1, 1),
-                            parent=self.record_dialog)
-
-        self.record_entry = entry
-
-
-    def record_dialog_button_clicked_gui(self, button_value):
-        """
-            Behaviors when 'Record Point' dialog buttons clicked
-        """
-
-        print("[Info] recording teaching")
-
-        if button_value == 1:
-            record_name = self.record_entry.get()
-            print("Point name:", record_name)
-            jnt_values = list(np.rad2deg(self.robot_teach.get_jnt_values()))
-            for i in range(6):
-                jnt_values[i] = float(jnt_values[i])
-            self.teach_point_temp[record_name] = jnt_values
-            print("teach_point_temp = ", self.teach_point_temp)
-            self.record_teaching()
-            self.record_dialog.hide()
-
-        else:
-            self.record_dialog.hide()
-            print("Record Point dialog closed")
-
     
     def create_point_mgr_menu_gui(self):
         """
@@ -454,12 +409,12 @@ class FastSimWorld(World):
                                                 frameColor=(0.8, 0.8, 0.8, 1),
                                                 sortOrder=1,
                                                 parent=self.frame_manager)
-        DirectButton(text="Delete",
+        DirectButton(text="Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
                     frameSize=(0, 5, -1, 1),
-                    command=self.delete_teaching,
+                    command=self.edit_teaching,
                     parent=self.point_mgr_menu_frame)
         
         DirectButton(text="Export",
@@ -693,6 +648,52 @@ class FastSimWorld(World):
         """
             Recording teaching point
         """
+
+        self.record_dialog = DirectDialog(dialogName='Record Point',
+                              text='Enter the point name:',
+                              scale=(0.7, 0.7, 0.7),
+                              buttonTextList=['OK', 'Cancel'],
+                              buttonValueList=[1, 0],
+                              command=self.record_dialog_button_clicked_teaching)
+
+        entry = DirectEntry(scale=0.04,
+                            width=10,
+                            pos=(-0.2, 0, -0.1),
+                            initialText='',
+                            focus=1,
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.record_dialog)
+
+        self.record_entry = entry
+
+
+    def record_dialog_button_clicked_teaching(self, button_value):
+        """
+            Behaviors when 'Record Point' dialog buttons clicked
+        """
+
+        print("[Info] recording teaching")
+
+        if button_value == 1:
+            record_name = self.record_entry.get()
+            print("Point name:", record_name)
+            jnt_values = list(np.rad2deg(self.robot_teach.get_jnt_values()))
+            for i in range(6):
+                jnt_values[i] = round(float(jnt_values[i]), 3)
+            self.teach_point_temp[record_name] = jnt_values
+            print("teach_point_temp = ", self.teach_point_temp)
+            # self.record_teaching()
+            self.record_dialog.hide()
+
+        else:
+            self.record_dialog.hide()
+            print("Record Point dialog closed")
+
+
+    def record_teaching_old(self):
+        """
+            Recording teaching point
+        """
         
         record_conf = self.robot_teach.get_jnt_values()
         
@@ -724,12 +725,93 @@ class FastSimWorld(World):
             raise ValueError("[Error] start_end_conf[]的长度不能超过2")
 
 
-    def delete_teaching(self):
+    def edit_teaching(self):
         """
-            Deleting teaching point
+            Editing teaching point
         """
         
-        print("[TODO] deleting points")
+        print("[TODO] editing points")
+
+        self.checkbox_values = []
+
+        self.edit_point_dialog = DirectDialog(dialogName='Edit Points',
+                              scale=(0.4, 0.4, 0.4),
+                              buttonTextList=['Remove', 'Close'],
+                              buttonValueList=[1, 0],
+                              frameSize=(-1.5,1.5,-0.1-0.1*len(self.teach_point_temp),1),
+                              frameColor=(0.7,0.7,0.7,0.5),
+                              command=self.edit_point_dialog_button_clicked_teaching)
+        
+        self.edit_point_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.teach_point_temp)))
+        self.edit_point_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.teach_point_temp)))
+
+        DirectLabel(text="Point Name", 
+                    pos=(-1.2, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_point_dialog)
+        
+        DirectLabel(text="Joint Values(deg)", 
+                    pos=(0, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_point_dialog)
+        
+        DirectLabel(text="Remove", 
+                    pos=(1.2, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_point_dialog)
+        
+        row = 0
+        for i, (point_name, joint_values) in enumerate(self.teach_point_temp.items()):
+            DirectLabel(text=point_name, 
+                        pos=(-1.2, 0, 0.6-row*0.1), 
+                        scale=0.07, 
+                        parent=self.edit_point_dialog)
+            
+            DirectLabel(text=str(joint_values), 
+                        pos=(0, 0, 0.6-row*0.1), 
+                        scale=0.07, 
+                        parent=self.edit_point_dialog)
+            
+            DirectCheckButton(pos=(1.2, 0, 0.6-row*0.1),
+                            scale=0.07, 
+                            command=self.edit_point_checkbox_clicked_teaching,
+                            extraArgs=[i],
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.edit_point_dialog)
+            row += 1
+
+            self.checkbox_values.append([point_name, False])
+
+    
+    def edit_point_checkbox_clicked_teaching(self, isChecked, checkbox_index):
+        """
+            Change checkbox status
+        """
+        
+        if isChecked:
+            self.checkbox_values[checkbox_index][1] = True
+        else:
+            self.checkbox_values[checkbox_index][1] = False
+
+    
+    def edit_point_dialog_button_clicked_teaching(self, button_value):
+        """
+            Behaviors when 'Edit Point' dialog buttons clicked
+        """
+
+        if button_value == 1:
+            for point_name, checkbox_state in self.checkbox_values:
+                if checkbox_state:
+                    removed_point = self.teach_point_temp.pop(point_name)
+                    print("该示教点已被移除:", removed_point)
+            self.edit_point_dialog.hide()
+            print("Edit Point completed")
+
+            self.edit_teaching()
+
+        else:
+            self.edit_point_dialog.hide()
+            print("Edit Point dialog closed")
 
 
     def save_teaching(self):
