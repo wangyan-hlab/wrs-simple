@@ -1,6 +1,7 @@
 import os
 import time
 import yaml
+import copy
 import tkinter as tk
 from tkinter import filedialog
 import numpy as np
@@ -55,6 +56,7 @@ class FastSimWorld(World):
 
         self.robot_teach = None     # visual robot for teaching
         self.teach_point_temp = {}
+        self.path_temp = {}
         self.start_end_conf = []    # saving teaching start and goal points
         self.start_meshmodel = None 
         self.goal_meshmodel = None
@@ -455,7 +457,7 @@ class FastSimWorld(World):
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
                     frameSize=(0, 5, -1, 1),
-                    command=self.delete_moving,
+                    command=self.edit_moving,
                     parent=self.path_mgr_menu_frame)
         
         DirectButton(text="Export",
@@ -649,12 +651,14 @@ class FastSimWorld(World):
             Recording teaching point
         """
 
-        self.record_dialog = DirectDialog(dialogName='Record Point',
+        print("[Info] recording point")
+
+        self.record_point_dialog = DirectDialog(dialogName='Record Point',
                               text='Enter the point name:',
                               scale=(0.7, 0.7, 0.7),
                               buttonTextList=['OK', 'Cancel'],
                               buttonValueList=[1, 0],
-                              command=self.record_dialog_button_clicked_teaching)
+                              command=self.record_point_dialog_button_clicked_teaching)
 
         entry = DirectEntry(scale=0.04,
                             width=10,
@@ -662,12 +666,12 @@ class FastSimWorld(World):
                             initialText='',
                             focus=1,
                             frameColor=(1, 1, 1, 1),
-                            parent=self.record_dialog)
+                            parent=self.record_point_dialog)
 
-        self.record_entry = entry
+        self.record_point_entry = entry
 
 
-    def record_dialog_button_clicked_teaching(self, button_value):
+    def record_point_dialog_button_clicked_teaching(self, button_value):
         """
             Behaviors when 'Record Point' dialog buttons clicked
         """
@@ -675,18 +679,17 @@ class FastSimWorld(World):
         print("[Info] recording teaching")
 
         if button_value == 1:
-            record_name = self.record_entry.get()
+            record_name = self.record_point_entry.get()
             print("Point name:", record_name)
             jnt_values = list(np.rad2deg(self.robot_teach.get_jnt_values()))
             for i in range(6):
                 jnt_values[i] = round(float(jnt_values[i]), 3)
             self.teach_point_temp[record_name] = jnt_values
             print("teach_point_temp = ", self.teach_point_temp)
-            # self.record_teaching()
-            self.record_dialog.hide()
+            self.record_point_dialog.hide()
 
         else:
-            self.record_dialog.hide()
+            self.record_point_dialog.hide()
             print("Record Point dialog closed")
 
 
@@ -861,16 +864,17 @@ class FastSimWorld(World):
         self.plan_dialog = DirectDialog(dialogName='Plan',
                                         pos=(0, 0, 0.5),
                                         scale=(0.4, 0.4, 0.4),
-                                        buttonTextList=['Preview', 'Plan', 'Stop', 'Cancel'],
-                                        buttonValueList=[1, 2, 3, 0],
+                                        buttonTextList=['Preview', 'Plan', 'Stop', 'Record', 'Cancel'],
+                                        buttonValueList=[1, 2, 3, 4, 0],
                                         frameSize=(-1.0, 1.0, 0, 1.0),
                                         frameColor=(0.7,0.7,0.7,0.5),
                                         command=self.plan_dialog_button_clicked_moving)
         
-        self.plan_dialog.buttonList[0].setPos((-0.1, 0, 0.1))
+        self.plan_dialog.buttonList[0].setPos((0.2, 0, 0.2))
         self.plan_dialog.buttonList[1].setPos((0.2, 0, 0.1))
-        self.plan_dialog.buttonList[2].setPos((0.5, 0, 0.1))
-        self.plan_dialog.buttonList[3].setPos((0.8, 0, 0.1))
+        self.plan_dialog.buttonList[2].setPos((0.5, 0, 0.2))
+        self.plan_dialog.buttonList[3].setPos((0.5, 0, 0.1))
+        self.plan_dialog.buttonList[4].setPos((0.8, 0, 0.1))
 
         DirectLabel(text="Start", 
                     pos=(-0.8, 0, 0.8),
@@ -944,7 +948,7 @@ class FastSimWorld(World):
                                         self.path, self.component_name], 
                                 appendTask=True)
                 
-        elif button_value in [3, 0]:
+        elif button_value in [3, 4, 0]:
             self.endplanningtask = 1
 
             if self.start_meshmodel is not None:
@@ -956,11 +960,63 @@ class FastSimWorld(World):
 
             if button_value == 3:
                 print("Plan animation stopped")
+
+            elif button_value == 4:
+
+                self.plan_dialog.hide()
+
+                self.record_path_dialog = DirectDialog(dialogName='Record Path',
+                                    text='Enter the path name:',
+                                    scale=(0.7, 0.7, 0.7),
+                                    buttonTextList=['OK', 'Cancel'],
+                                    buttonValueList=[1, 0],
+                                    command=self.record_path_dialog_button_clicked_moving)
+
+                entry = DirectEntry(scale=0.04,
+                                    width=10,
+                                    pos=(-0.2, 0, -0.1),
+                                    initialText='',
+                                    focus=1,
+                                    frameColor=(1, 1, 1, 1),
+                                    parent=self.record_path_dialog)
+                
+                self.record_path_entry = entry
+
             else:
                 self.plan_dialog.hide()
                 print("Plan dialog closed")
 
     
+    def record_path_dialog_button_clicked_moving(self, button_value):
+        """
+            Behaviors when 'Record Point' dialog buttons clicked
+        """
+
+        print("[Info] recording path")
+
+        if button_value == 1:
+            record_name = self.record_path_entry.get()
+            print("Path name:", record_name)
+            path = copy.deepcopy(self.path)
+
+            path_deg = []
+            for pt in path:
+                pt = list(np.rad2deg(pt))
+                pt_deg = []
+                for i in range(6):
+                    pt[i] = round(float(pt[i]), 3)
+                    pt_deg.append(pt[i])
+                path_deg.append(pt_deg)
+
+            self.path_temp[record_name] = path_deg
+            print("teach_path_temp = ", self.path_temp)
+            self.record_path_dialog.hide()
+
+        else:
+            self.record_path_dialog.hide()
+            print("Record Path dialog closed")
+
+
     def plan_show_startgoal_moving(self):
         """
             Showing start and goal point for planning
@@ -1016,6 +1072,7 @@ class FastSimWorld(World):
             Executing the path 
         """
 
+        #TODO:这里self.path要替换成self.path_temp
         if self.path:
             if self.robot_meshmodel is not None:
                 self.robot_meshmodel.detach()
@@ -1073,19 +1130,61 @@ class FastSimWorld(World):
         pass
 
 
-    def delete_moving(self):
+    def edit_moving(self):
         """
-            Deleting the path
+            Editing the path
         """
 
-        print("[TODO] deleting path")
+        print("[TODO] editing path")
 
     def save_moving(self):
         """
             Exporting the path
         """
         
-        print("[TODO] exporting path")
+        print("[Info] exporting path")
+
+        self.export_path_dialog = DirectDialog(dialogName='Export Path',
+                            text='Export path to:',
+                            scale=(0.7, 0.7, 0.7),
+                            buttonTextList=['OK', 'Cancel'],
+                            buttonValueList=[1, 0],
+                            command=self.export_path_dialog_button_clicked_moving)
+
+        entry = DirectEntry(scale=0.04,
+                            width=10,
+                            pos=(-0.2, 0, -0.1),
+                            initialText='',
+                            focus=1,
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.export_path_dialog)
+        
+        self.export_path_entry = entry
+
+
+    def export_path_dialog_button_clicked_moving(self, button_value):
+        """
+            Behaviors when 'Export Path' dialog buttons clicked
+        """
+
+        if button_value == 1:
+            filename = self.export_path_entry.get()
+            
+            this_dir = os.path.split(__file__)[0]
+            dir = os.path.join(this_dir, 'config/paths/')
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+            path_filepath = os.path.join(dir, f'{filename}.yaml')
+
+            with open(path_filepath, 'w', encoding='utf-8') as outfile:
+                yaml.dump(self.path_temp, outfile, default_flow_style=False)
+
+            self.export_path_dialog.hide()
+            print("[Info] path yaml file saved")
+
+        else:
+            self.export_path_dialog.hide()
+            print("Export Path dialog closed")
 
 
     def load_moving(self):
@@ -1093,7 +1192,20 @@ class FastSimWorld(World):
             Importing the path
         """
         
-        print("[TODO] importing path")
+        print("[Info] importing path")
+
+        root = tk.Tk()
+        root.withdraw()
+        filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
+                                              initialdir="./config/paths")
+        if filepath:
+            print("导入的示教点文件:", filepath)
+
+            self.path_temp = {}
+            with open(filepath, 'r', encoding='utf-8') as infile:
+                self.path_temp = yaml.load(infile, Loader=yaml.FullLoader)
+
+            print("已导入Path:", self.path_temp)
 
     
 if __name__ == "__main__":
