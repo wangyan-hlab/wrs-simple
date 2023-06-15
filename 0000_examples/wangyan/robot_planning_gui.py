@@ -690,41 +690,6 @@ class FastSimWorld(World):
             print("Record Point dialog closed")
 
 
-    def record_teaching_old(self):
-        """
-            Recording teaching point
-        """
-        
-        record_conf = self.robot_teach.get_jnt_values()
-        
-        if len(self.start_end_conf) == 2:
-            print("[Warning] 清空之前示教的起始点和目标点")
-            self.start_meshmodel.detach()
-            self.goal_meshmodel.detach()
-            self.start_end_conf = []
-            self.start_end_conf.append(record_conf)
-            self.robot_teach.fk(self.component_name, record_conf)
-            self.start_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.3])
-            self.start_meshmodel.attach_to(self)
-
-        elif len(self.start_end_conf) == 1:
-            print("[Info] 已示教目标点")
-            self.start_end_conf.append(record_conf)
-            self.robot_teach.fk(self.component_name, record_conf)
-            self.goal_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[0,1,0,0.3])
-            self.goal_meshmodel.attach_to(self)
-
-        elif len(self.start_end_conf) == 0:
-            print("[Info] 已示教起始点")
-            self.start_end_conf.append(record_conf)
-            self.robot_teach.fk(self.component_name, record_conf)
-            self.start_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.3])
-            self.start_meshmodel.attach_to(self)
-
-        else:
-            raise ValueError("[Error] start_end_conf[]的长度不能超过2")
-
-
     def edit_teaching(self):
         """
             Editing teaching point
@@ -735,12 +700,12 @@ class FastSimWorld(World):
         self.checkbox_values = []
 
         self.edit_point_dialog = DirectDialog(dialogName='Edit Points',
-                              scale=(0.4, 0.4, 0.4),
-                              buttonTextList=['Remove', 'Close'],
-                              buttonValueList=[1, 0],
-                              frameSize=(-1.5,1.5,-0.1-0.1*len(self.teach_point_temp),1),
-                              frameColor=(0.7,0.7,0.7,0.5),
-                              command=self.edit_point_dialog_button_clicked_teaching)
+                                            scale=(0.4, 0.4, 0.4),
+                                            buttonTextList=['Remove', 'Close'],
+                                            buttonValueList=[1, 0],
+                                            frameSize=(-1.5,1.5,-0.1-0.1*len(self.teach_point_temp),1),
+                                            frameColor=(0.7,0.7,0.7,0.5),
+                                            command=self.edit_point_dialog_button_clicked_teaching)
         
         self.edit_point_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.teach_point_temp)))
         self.edit_point_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.teach_point_temp)))
@@ -893,37 +858,127 @@ class FastSimWorld(World):
             Planning the path
         """
 
-        self.endplanningtask = 0    # flag to start animation
-        time_start = time.time()
-        if len(self.start_end_conf) == 2:
+        self.plan_dialog = DirectDialog(dialogName='Plan',
+                                        pos=(0, 0, 0.5),
+                                        scale=(0.4, 0.4, 0.4),
+                                        buttonTextList=['Preview', 'Plan', 'Stop', 'Cancel'],
+                                        buttonValueList=[1, 2, 3, 0],
+                                        frameSize=(-1.0, 1.0, 0, 1.0),
+                                        frameColor=(0.7,0.7,0.7,0.5),
+                                        command=self.plan_dialog_button_clicked_moving)
+        
+        self.plan_dialog.buttonList[0].setPos((-0.1, 0, 0.1))
+        self.plan_dialog.buttonList[1].setPos((0.2, 0, 0.1))
+        self.plan_dialog.buttonList[2].setPos((0.5, 0, 0.1))
+        self.plan_dialog.buttonList[3].setPos((0.8, 0, 0.1))
+
+        DirectLabel(text="Start", 
+                    pos=(-0.8, 0, 0.8),
+                    scale=0.07,
+                    parent=self.plan_dialog)
+        
+        DirectLabel(text="Goal", 
+                    pos=(-0.8, 0, 0.5),
+                    scale=0.07,
+                    parent=self.plan_dialog)
+        
+        options = list(self.teach_point_temp.keys())
+
+        self.start_option_menu = DirectOptionMenu(text_pos=(1, -0.4),
+                                            scale=(0.08, 0.08, 0.08),
+                                            frameSize=(0, 15, -1, 1),
+                                            frameColor=(1, 1, 1, 1),
+                                            pos=(-0.4, 0, 0.8),
+                                            items=options,
+                                            initialitem=0,
+                                            parent=self.plan_dialog)
+        
+        self.goal_option_menu = DirectOptionMenu(text_pos=(1, -0.4),
+                                            scale=(0.08, 0.08, 0.08),
+                                            frameSize=(0, 15, -1, 1),
+                                            frameColor=(1, 1, 1, 1),
+                                            pos=(-0.4, 0, 0.5),
+                                            items=options,
+                                            initialitem=0,
+                                            parent=self.plan_dialog)
+
+        
+    def plan_dialog_button_clicked_moving(self, button_value):
+        """
+            Behaviors when 'Plan' dialog buttons clicked
+        """
+        
+        start_conf = np.deg2rad(self.teach_point_temp[self.start_option_menu.get()])
+        goal_conf = np.deg2rad(self.teach_point_temp[self.goal_option_menu.get()])
+
+        self.start_end_conf = []
+        self.start_end_conf.append(start_conf)
+        self.start_end_conf.append(goal_conf)
+        
+        if button_value == 1:  
+            self.plan_show_startgoal_moving()
+
+        elif button_value == 2:
+            self.endplanningtask = 0    # flag to start animation
+
+            time_start = time.time()
+            # if len(self.start_end_conf) == 2:
             [start_conf, goal_conf] = self.start_end_conf
             rrtc_planner = rrtc.RRTConnect(base.robot_plan)
             self.path = rrtc_planner.plan(component_name=base.component_name,
-                                          start_conf=start_conf,
-                                          goal_conf=goal_conf,
-                                          obstacle_list=[],
-                                          ext_dist=0.05,
-                                          max_time=300)
+                                        start_conf=start_conf,
+                                        goal_conf=goal_conf,
+                                        obstacle_list=[],
+                                        ext_dist=0.05,
+                                        max_time=300)
             time_end = time.time()
             print("Planning time = ", time_end-time_start)
             print(len(self.path), self.path)
 
-            self.start_meshmodel.detach()
-            self.goal_meshmodel.detach()
-
+            print("Plan animation started")
             # Motion planning animation
             rbtmnp = [None]
             motioncounter = [0]
             taskMgr.doMethodLater(0.1, self.animation_moving, "animation_moving",
                                 extraArgs=[rbtmnp, motioncounter, self.robot_plan, 
-                                           self.path, self.component_name], 
+                                        self.path, self.component_name], 
                                 appendTask=True)
-            
-        elif len(self.start_end_conf) == 1:
-            print("[Warning] 请示教机器人运动目标点")
+                
+        elif button_value in [3, 0]:
+            self.endplanningtask = 1
 
-        elif len(self.start_end_conf) == 0:
-            print("[Warning] 请示教机器人运动起始点")
+            if self.start_meshmodel is not None:
+                self.start_meshmodel.detach()
+            if self.goal_meshmodel is not None:
+                self.goal_meshmodel.detach()
+            for tcp_ball in self.tcp_ball_meshmodel:
+                tcp_ball.detach()
+
+            if button_value == 3:
+                print("Plan animation stopped")
+            else:
+                self.plan_dialog.hide()
+                print("Plan dialog closed")
+
+    
+    def plan_show_startgoal_moving(self):
+        """
+            Showing start and goal point for planning
+        """
+        
+        print("[Warning] 清空之前示教的起始点和目标点")
+        if self.start_meshmodel is not None:
+            self.start_meshmodel.detach()
+        if self.goal_meshmodel is not None:
+            self.goal_meshmodel.detach()
+        # Show start jnts
+        self.robot_teach.fk(self.component_name, self.start_end_conf[0])
+        self.start_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[1,0,0,0.3])
+        self.start_meshmodel.attach_to(self)
+        # Show goal jnts
+        self.robot_teach.fk(self.component_name, self.start_end_conf[1])
+        self.goal_meshmodel = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[0,1,0,0.3])
+        self.goal_meshmodel.attach_to(self)
 
 
     def animation_moving(self, rbtmnp, motioncounter, robot, path, armname, task):
@@ -964,6 +1019,10 @@ class FastSimWorld(World):
         if self.path:
             if self.robot_meshmodel is not None:
                 self.robot_meshmodel.detach()
+            if self.start_meshmodel is not None:
+                self.start_meshmodel.detach()
+            if self.goal_meshmodel is not None:
+                self.goal_meshmodel.detach()
             
             for tcp_ball in self.tcp_ball_meshmodel:
                 tcp_ball.detach()
@@ -974,10 +1033,14 @@ class FastSimWorld(World):
                 self.robot.fk(self.component_name, self.path[-1])
                 self.robot_teach.fk(self.component_name, self.path[-1])
                 self.robot_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True)
-                self.robot_meshmodel.attach_to(base)
+                self.robot_meshmodel.attach_to(self)
                 self.real_robot_moving()
                 self.path = []
                 self.start_end_conf = []
+
+                cur_jnt_values = self.robot.get_jnt_values()
+                for i in range(6):
+                    self.slider_values[i][0].setValue(np.rad2deg(cur_jnt_values)[i])
                 
             else:
                 print("[Info] Robot NOT connected")
@@ -985,11 +1048,16 @@ class FastSimWorld(World):
                 self.robot.fk(self.component_name, self.path[-1])
                 self.robot_teach.fk(self.component_name, self.path[-1])
                 self.robot_meshmodel = self.robot.gen_meshmodel(toggle_tcpcs=True)
-                self.robot_meshmodel.attach_to(base)
+                self.robot_meshmodel.attach_to(self)
                 print("[Info] 模拟真实机器人运行时间...")
                 time.sleep(5)
                 self.path = []
                 self.start_end_conf = []
+
+                cur_jnt_values = self.robot.get_jnt_values()
+                for i in range(6):
+                    self.slider_values[i][0].setValue(np.rad2deg(cur_jnt_values)[i])
+
             
             print("[Info] 机器人运行结束")
         
