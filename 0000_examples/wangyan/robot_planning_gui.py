@@ -55,8 +55,8 @@ class FastSimWorld(World):
         self.component_name = None
 
         self.robot_teach = None     # visual robot for teaching
-        self.teach_point_temp = {}
-        self.path_temp = {}
+        self.teach_point_temp = {}  # saving points temporarily
+        self.path_temp = {}         # saving paths temporarily
         self.start_end_conf = []    # saving teaching start and goal points
         self.start_meshmodel = None 
         self.goal_meshmodel = None
@@ -452,7 +452,7 @@ class FastSimWorld(World):
                                                 frameColor=(0.8, 0.8, 0.8, 1),
                                                 sortOrder=1,
                                                 parent=self.frame_manager)
-        DirectButton(text="Delete",
+        DirectButton(text="Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
@@ -493,12 +493,12 @@ class FastSimWorld(World):
                                                 frameColor=(0.8, 0.8, 0.8, 1),
                                                 sortOrder=1,
                                                 parent=self.frame_manager)
-        DirectButton(text="Delete",
+        DirectButton(text="Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
                     frameSize=(0, 5, -1, 1),
-                    command=self.delete_modeling,
+                    command=self.edit_modeling,
                     parent=self.model_mgr_menu_frame)
         
         DirectButton(text="Export",
@@ -571,12 +571,12 @@ class FastSimWorld(World):
         self.enable_teaching()
 
 
-    def delete_modeling(self):
+    def edit_modeling(self):
         """
-            Deleting models
+            Editing models
         """
 
-        print("[TODO] deleting model")
+        print("[TODO] editing model")
 
 
     def save_modeling(self):
@@ -641,7 +641,7 @@ class FastSimWorld(World):
                     value = round(np.rad2deg(tcp_rpy[i-3]), 2)
                     self.tcp_values[i].enterText(str(value))
         else:
-            print("The given joint angles are out of joint limits.")
+            print("[Warning] The given joint angles are out of joint limits.")
  
         return task.again
     
@@ -676,8 +676,6 @@ class FastSimWorld(World):
             Behaviors when 'Record Point' dialog buttons clicked
         """
 
-        print("[Info] recording teaching")
-
         if button_value == 1:
             record_name = self.record_point_entry.get()
             print("Point name:", record_name)
@@ -685,12 +683,11 @@ class FastSimWorld(World):
             for i in range(6):
                 jnt_values[i] = round(float(jnt_values[i]), 3)
             self.teach_point_temp[record_name] = jnt_values
-            print("teach_point_temp = ", self.teach_point_temp)
             self.record_point_dialog.hide()
 
         else:
             self.record_point_dialog.hide()
-            print("Record Point dialog closed")
+            print("[Info] Record Point dialog closed")
 
 
     def edit_teaching(self):
@@ -698,7 +695,7 @@ class FastSimWorld(World):
             Editing teaching point
         """
         
-        print("[TODO] editing points")
+        print("[Info] editing points")
 
         self.checkbox_values = []
 
@@ -742,7 +739,7 @@ class FastSimWorld(World):
             
             DirectCheckButton(pos=(1.2, 0, 0.6-row*0.1),
                             scale=0.07, 
-                            command=self.edit_point_checkbox_clicked_teaching,
+                            command=self.checkbox_status_change,
                             extraArgs=[i],
                             frameColor=(1, 1, 1, 1),
                             parent=self.edit_point_dialog)
@@ -751,7 +748,7 @@ class FastSimWorld(World):
             self.checkbox_values.append([point_name, False])
 
     
-    def edit_point_checkbox_clicked_teaching(self, isChecked, checkbox_index):
+    def checkbox_status_change(self, isChecked, checkbox_index):
         """
             Change checkbox status
         """
@@ -771,15 +768,15 @@ class FastSimWorld(World):
             for point_name, checkbox_state in self.checkbox_values:
                 if checkbox_state:
                     removed_point = self.teach_point_temp.pop(point_name)
-                    print("该示教点已被移除:", removed_point)
+                    print("[Info] 该示教点已被移除:", removed_point)
             self.edit_point_dialog.hide()
-            print("Edit Point completed")
+            print("[Info] Edit Point completed")
 
             self.edit_teaching()
 
         else:
             self.edit_point_dialog.hide()
-            print("Edit Point dialog closed")
+            print("[Info] Edit Point dialog closed")
 
 
     def save_teaching(self):
@@ -825,11 +822,11 @@ class FastSimWorld(World):
                 yaml.dump(self.teach_point_temp, outfile, default_flow_style=False)
 
             self.export_point_dialog.hide()
-            print("[Info] point yaml file saved")
+            print("[Info] 已保存Point的yaml文件")
 
         else:
             self.export_point_dialog.hide()
-            print("Export Point dialog closed")
+            print("[Info] Export Point dialog closed")
 
 
     def load_teaching(self):
@@ -844,13 +841,13 @@ class FastSimWorld(World):
         filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                               initialdir="./config/points")
         if filepath:
-            print("导入的示教点文件:", filepath)
+            print("[Info] 导入的示教点文件:", filepath)
 
             self.teach_point_temp = {}
             with open(filepath, 'r', encoding='utf-8') as infile:
                 self.teach_point_temp = yaml.load(infile, Loader=yaml.FullLoader)
 
-            print("已导入示教点:", self.teach_point_temp)
+            print("[Info] 已导入示教点:", self.teach_point_temp.keys())
 
 
     """
@@ -937,9 +934,9 @@ class FastSimWorld(World):
                                         max_time=300)
             time_end = time.time()
             print("Planning time = ", time_end-time_start)
-            print(len(self.path), self.path)
+            print(f"Path length = {len(self.path)}\nPath = {self.path}")
 
-            print("Plan animation started")
+            print("[Info] Plan animation started")
             # Motion planning animation
             rbtmnp = [None]
             motioncounter = [0]
@@ -959,7 +956,7 @@ class FastSimWorld(World):
                 tcp_ball.detach()
 
             if button_value == 3:
-                print("Plan animation stopped")
+                print("[Info] Plan animation stopped")
 
             elif button_value == 4:
 
@@ -984,7 +981,7 @@ class FastSimWorld(World):
 
             else:
                 self.plan_dialog.hide()
-                print("Plan dialog closed")
+                print("[Info] Plan dialog closed")
 
     
     def record_path_dialog_button_clicked_moving(self, button_value):
@@ -996,7 +993,6 @@ class FastSimWorld(World):
 
         if button_value == 1:
             record_name = self.record_path_entry.get()
-            print("Path name:", record_name)
             path = copy.deepcopy(self.path)
 
             path_deg = []
@@ -1009,12 +1005,11 @@ class FastSimWorld(World):
                 path_deg.append(pt_deg)
 
             self.path_temp[record_name] = path_deg
-            print("teach_path_temp = ", self.path_temp)
             self.record_path_dialog.hide()
 
         else:
             self.record_path_dialog.hide()
-            print("Record Path dialog closed")
+            print("[Info] Record Path dialog closed")
 
 
     def plan_show_startgoal_moving(self):
@@ -1022,7 +1017,7 @@ class FastSimWorld(World):
             Showing start and goal point for planning
         """
         
-        print("[Warning] 清空之前示教的起始点和目标点")
+        print("[Info] 显示Planning的start和goal")
         if self.start_meshmodel is not None:
             self.start_meshmodel.detach()
         if self.goal_meshmodel is not None:
@@ -1135,7 +1130,68 @@ class FastSimWorld(World):
             Editing the path
         """
 
-        print("[TODO] editing path")
+        print("[Info] editing paths")
+
+        self.checkbox_values = []
+
+        self.edit_path_dialog = DirectDialog(dialogName='Edit Paths',
+                                            scale=(0.4, 0.4, 0.4),
+                                            buttonTextList=['Remove', 'Close'],
+                                            buttonValueList=[1, 0],
+                                            frameSize=(-1.5,1.5,-0.1-0.1*len(self.path_temp),1),
+                                            frameColor=(0.7,0.7,0.7,0.5),
+                                            command=self.edit_path_dialog_button_clicked_teaching)
+        
+        self.edit_path_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.path_temp)))
+        self.edit_path_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.path_temp)))
+
+        DirectLabel(text="Path Name", 
+                    pos=(-1.2, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_path_dialog)
+        
+        DirectLabel(text="Remove", 
+                    pos=(1.2, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_path_dialog)
+        
+        row = 0
+        for i, (path_name, _) in enumerate(self.path_temp.items()):
+            DirectLabel(text=path_name, 
+                        pos=(-1.2, 0, 0.6-row*0.1), 
+                        scale=0.07, 
+                        parent=self.edit_path_dialog)
+            
+            DirectCheckButton(pos=(1.2, 0, 0.6-row*0.1),
+                            scale=0.07, 
+                            command=self.checkbox_status_change,
+                            extraArgs=[i],
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.edit_path_dialog)
+            row += 1
+
+            self.checkbox_values.append([path_name, False])
+
+    
+    def edit_path_dialog_button_clicked_teaching(self, button_value):
+        """
+            Behaviors when 'Edit Path' dialog buttons clicked
+        """
+
+        if button_value == 1:
+            for path_name, checkbox_state in self.checkbox_values:
+                if checkbox_state:
+                    removed_path = self.path_temp.pop(path_name)
+                    print("[Info] 该Path已被移除:", removed_path)
+            self.edit_path_dialog.hide()
+            print("[Info] Edit Path completed")
+
+            self.edit_moving()
+
+        else:
+            self.edit_path_dialog.hide()
+            print("[Info] Edit Path dialog closed")
+
 
     def save_moving(self):
         """
@@ -1180,11 +1236,11 @@ class FastSimWorld(World):
                 yaml.dump(self.path_temp, outfile, default_flow_style=False)
 
             self.export_path_dialog.hide()
-            print("[Info] path yaml file saved")
+            print("[Info] 已保存Path的yaml文件")
 
         else:
             self.export_path_dialog.hide()
-            print("Export Path dialog closed")
+            print("[Info] Export Path dialog closed")
 
 
     def load_moving(self):
@@ -1199,13 +1255,13 @@ class FastSimWorld(World):
         filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                               initialdir="./config/paths")
         if filepath:
-            print("导入的示教点文件:", filepath)
+            print("[Info] 导入的Path文件:", filepath)
 
             self.path_temp = {}
             with open(filepath, 'r', encoding='utf-8') as infile:
                 self.path_temp = yaml.load(infile, Loader=yaml.FullLoader)
 
-            print("已导入Path:", self.path_temp)
+            print("[Info] 已导入Path:", self.path_temp.keys())
 
     
 if __name__ == "__main__":
