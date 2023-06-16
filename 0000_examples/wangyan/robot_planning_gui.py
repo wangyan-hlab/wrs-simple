@@ -68,7 +68,9 @@ class FastSimWorld(World):
         self.init_conf = init_conf
         self.real_robot_conf = np.zeros(6)
         self.joint_limits = None
-        
+        self.execute_line_num = 0
+        self.task_temp = {}      # saving execution sequence of paths/points temporarily
+        self.task_targets = []
         self.vfs = vfs.get_global_ptr()
 
         
@@ -85,29 +87,224 @@ class FastSimWorld(World):
         self.create_point_mgr_menu_gui()
         self.create_path_mgr_menu_gui()
         self.create_model_mgr_menu_gui()
+        self.create_task_mgr_menu_gui()
 
     
     """
         任务管理器模块
     """
-    def save_task(self):
+    def edit_task(self):
         """
-            Exporting modeling, teaching, and moving data
+            Editing tasks
+        """
+
+        # 防止程序崩溃的预处理
+        init_conf = list(np.rad2deg(self.init_conf))
+        for j in range(6):
+            init_conf[j] = round(float(init_conf[j]), 3)
+            
+        if not self.teach_point_temp:
+            print("未找到示教点,使用当前点作为示教点")
+            self.teach_point_temp['zero-config'] = init_conf
+
+        if not self.path_temp:
+            print("未找到Path,使用当前点作为Path")
+            self.path_temp['zero-path'] = [init_conf]
+
+        if not self.task_temp:
+            print("未找到任务，使用当前点作为任务目标点")
+            self.teach_point_temp['zero-config'] = init_conf
+            self.task_temp['zero-execute'] = ["point", "zero-config"]
+
+        # 创建对话框
+        self.edit_task_dialog = DirectDialog(dialogName='Edit Tasks',
+                                        pos=(-0.5, 0, -0.2),
+                                        scale=(0.4, 0.4, 0.4),
+                                        buttonTextList=['Add', 'Remove', 'Cancel'],
+                                        buttonValueList=[1, 2, 0],
+                                        frameSize=(-1.5, 1.5, -0.1-0.1*self.execute_line_num, 1),
+                                        frameColor=(0.8, 0.8, 0.8, 0.9),
+                                        command=self.edit_task_dialog_button_clicked_task,
+                                        parent=self.task_mgr_menu_frame)
+        
+        self.edit_task_dialog.buttonList[0].setPos((0.2, 0, -0.05-0.1*self.execute_line_num))
+        self.edit_task_dialog.buttonList[1].setPos((0.5, 0, -0.05-0.1*self.execute_line_num))
+        self.edit_task_dialog.buttonList[2].setPos((0.8, 0, -0.05-0.1*self.execute_line_num))
+
+        DirectLabel(text="Target Type", 
+                    pos=(-0.7, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_task_dialog)
+        
+        DirectLabel(text="Target Name", 
+                    pos=(0, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_task_dialog)
+        
+        DirectLabel(text="Remove", 
+                    pos=(1.2, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_task_dialog)
+        
+        for i, (target_num, [target_type, target_name]) in enumerate(self.task_temp.items()):
+            DirectLabel(text=str(i),
+                        pos=(-1.2, 0, 0.6-i*0.1),
+                        scale=0.07,
+                        parent=self.edit_task_dialog)
+            
+            initial_item = 0 if target_type == "point" else 1
+            type_option_menu = DirectOptionMenu(text_pos=(1, -0.4),
+                                                scale=(0.07, 0.07, 0.07),
+                                                frameSize=(0, 4, -1, 1),
+                                                frameColor=(1, 1, 1, 1),
+                                                pos=(-0.8, 0, 0.6-i*0.1),
+                                                items=["point", "path"],
+                                                initialitem=initial_item,
+                                                command=self.update_target_name_task,
+                                                extraArgs=[i],
+                                                parent=self.edit_task_dialog)
+            target_type = type_option_menu.get()
+
+            if target_type == "point":
+                name_options = list(self.teach_point_temp.keys())
+            else:
+                name_options = list(self.path_temp.keys())
+            name_option_menu = DirectOptionMenu(text_pos=(1, -0.4),
+                                                scale=(0.07, 0.07, 0.07),
+                                                frameSize=(0, 10, -1, 1),
+                                                frameColor=(1, 1, 1, 1),
+                                                pos=(-0.2, 0, 0.6-i*0.1),
+                                                items=name_options,
+                                                initialitem=0,
+                                                parent=self.edit_task_dialog)
+            target_name = name_option_menu.get()
+
+            DirectCheckButton(pos=(1.2, 0, 0.6-i*0.1),
+                            scale=0.07, 
+                            command=self.edit_task_checkbox_status_change,
+                            extraArgs=[i],
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.edit_task_dialog)
+            
+            self.task_targets.append([target_num, type_option_menu, name_option_menu, False])
+        
+
+    def edit_task_checkbox_status_change(self, isChecked, checkbox_index):
+        """
+            Change checkbox status
         """
         
-        self.save_modeling()
-        self.save_teaching()
-        self.save_moving()
+        if isChecked:
+            self.task_targets[checkbox_index][3] = True
+        else:
+            self.task_targets[checkbox_index][3] = False
+
+    
+    def update_target_name_task(self, value, index):
+        """
+            Change the target name list according to the target type
+        """
+        
+        if value == "point":
+            new_items = list(self.teach_point_temp.keys())
+        else:
+            new_items = list(self.path_temp.keys())
+        self.task_targets[index][2]['items'] = new_items
+
+    
+    def edit_task_dialog_button_clicked_task(self, button_value):
+        """
+            Behaviors when 'Task' dialog buttons clicked
+        """
+        
+        if button_value == 1:    
+            # TODO: 如何增加task target?
+            pass
+
+        elif button_value == 2: # remove selected targets
+            for target_num, _, _, checkbox_state in self.task_targets:
+                if checkbox_state:
+                    removed_target = self.task_temp.pop(target_num)
+                    print("[Info] 该任务目标已被移除:", removed_target)
+            self.edit_task_dialog.hide()
+            print("[Info] Edit Task completed")
+
+            self.edit_task()
+
+        else:
+            self.edit_task_dialog.hide()
+            print("[Info] Execute dialog closed")
+
+
+    def save_task(self):
+        """
+            Exporting tasks
+        """
+
+        print("[Info] exporting task")
+
+        self.export_task_dialog = DirectDialog(dialogName='Export Task',
+                                    text='Export task to:',
+                                    scale=(0.7, 0.7, 0.7),
+                                    buttonTextList=['OK', 'Cancel'],
+                                    buttonValueList=[1, 0],
+                                    command=self.export_task_dialog_button_clicked_moving)
+
+        entry = DirectEntry(scale=0.04,
+                            width=10,
+                            pos=(-0.2, 0, -0.1),
+                            initialText='',
+                            focus=1,
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.export_task_dialog)
+        
+        self.export_task_entry = entry
+            
+
+    def export_task_dialog_button_clicked_moving(self, button_value):
+        """
+            Behaviors when 'Export Task' dialog buttons clicked
+        """
+        
+        if button_value == 1:
+            filename = self.export_task_entry.get()
+            
+            this_dir = os.path.split(__file__)[0]
+            dir = os.path.join(this_dir, 'config/tasks/')
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+            task_filepath = os.path.join(dir, f'{filename}.yaml')
+
+            with open(task_filepath, 'w', encoding='utf-8') as outfile:
+                yaml.dump(self.task_temp, outfile, default_flow_style=False)
+
+            self.export_task_dialog.hide()
+            print("[Info] 已保存Task的yaml文件")
+
+        else:
+            self.export_task_dialog.hide()
+            print("[Info] Export Task dialog closed")
 
     
     def load_task(self):
         """
-            Importing modeling, teaching, and moving data
+            Importing tasks
         """
 
-        self.load_modeling()
-        self.load_teaching()
-        self.load_moving()
+        print("[Info] importing task")
+        
+        root = tk.Tk()
+        root.withdraw()
+        filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
+                                              initialdir="./config/tasks")
+        if filepath:
+            print("[Info] 导入的任务文件:", filepath)
+
+            self.task_temp = {}
+            with open(filepath, 'r', encoding='utf-8') as infile:
+                self.task_temp = yaml.load(infile, Loader=yaml.FullLoader)
+
+            print("[Info] 已导入任务", filepath)
 
 
     """
@@ -138,8 +335,8 @@ class FastSimWorld(World):
                                  parent=self.frame_main)
         
         self.frame_manager = DirectFrame(frameColor=(0, 0, 1, 0.1),
-                                 pos=(1, 0, 0.6),
-                                 frameSize=(0, 1, 0, 0.4))
+                                 pos=(0.5, 0, 0.6),
+                                 frameSize=(0, 1.5, 0, 0.4))
         
 
     def create_button_gui(self):
@@ -516,6 +713,47 @@ class FastSimWorld(World):
                     frameSize=(0, 5, -1, 1),
                     command=self.load_modeling,
                     parent=self.model_mgr_menu_frame)
+        
+    
+    def create_task_mgr_menu_gui(self):
+        """
+            Create the Task Manager menu
+        """
+
+        DirectLabel(text="Task Manager",
+                    scale=0.04,
+                    pos=(1.11, 0, 0.32),
+                    parent=self.frame_manager,
+                    frameColor=(1,1,1,0.5))
+        
+        self.task_mgr_menu_frame = DirectFrame(pos=(0.96,0,0),
+                                                frameSize=(0.02, 0.27, 0.02, 0.3),
+                                                frameColor=(0.8, 0.8, 0.8, 1),
+                                                sortOrder=1,
+                                                parent=self.frame_manager)
+        DirectButton(text="Edit",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.25),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.edit_task,
+                    parent=self.task_mgr_menu_frame)
+        
+        DirectButton(text="Export",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.16),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.save_task,
+                    parent=self.task_mgr_menu_frame)
+        
+        DirectButton(text="Import",
+                    text_pos=(2, -0.2),
+                    scale=(0.04, 0.04, 0.04),
+                    pos=(0.05, 0, 0.07),
+                    frameSize=(0, 5, -1, 1),
+                    command=self.load_task,
+                    parent=self.task_mgr_menu_frame)
 
 
     def get_robot_jnts(self):
@@ -697,15 +935,17 @@ class FastSimWorld(World):
         
         print("[Info] editing points")
 
-        self.checkbox_values = []
+        self.edit_teaching_checkbox_values = []
 
         self.edit_point_dialog = DirectDialog(dialogName='Edit Points',
+                                            pos=(-0.5, 0, -0.2),
                                             scale=(0.4, 0.4, 0.4),
                                             buttonTextList=['Remove', 'Close'],
                                             buttonValueList=[1, 0],
                                             frameSize=(-1.5,1.5,-0.1-0.1*len(self.teach_point_temp),1),
-                                            frameColor=(0.7,0.7,0.7,0.5),
-                                            command=self.edit_point_dialog_button_clicked_teaching)
+                                            frameColor=(0.8,0.8,0.8,0.9),
+                                            command=self.edit_point_dialog_button_clicked_teaching,
+                                            parent=self.point_mgr_menu_frame)
         
         self.edit_point_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.teach_point_temp)))
         self.edit_point_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.teach_point_temp)))
@@ -725,38 +965,36 @@ class FastSimWorld(World):
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
-        row = 0
         for i, (point_name, joint_values) in enumerate(self.teach_point_temp.items()):
             DirectLabel(text=point_name, 
-                        pos=(-1.2, 0, 0.6-row*0.1), 
+                        pos=(-1.2, 0, 0.6-i*0.1), 
                         scale=0.07, 
                         parent=self.edit_point_dialog)
             
             DirectLabel(text=str(joint_values), 
-                        pos=(0, 0, 0.6-row*0.1), 
+                        pos=(0, 0, 0.6-i*0.1), 
                         scale=0.07, 
                         parent=self.edit_point_dialog)
             
-            DirectCheckButton(pos=(1.2, 0, 0.6-row*0.1),
+            DirectCheckButton(pos=(1.2, 0, 0.6-i*0.1),
                             scale=0.07, 
-                            command=self.checkbox_status_change,
+                            command=self.edit_teaching_checkbox_status_change,
                             extraArgs=[i],
                             frameColor=(1, 1, 1, 1),
                             parent=self.edit_point_dialog)
-            row += 1
 
-            self.checkbox_values.append([point_name, False])
+            self.edit_teaching_checkbox_values.append([point_name, False])
 
     
-    def checkbox_status_change(self, isChecked, checkbox_index):
+    def edit_teaching_checkbox_status_change(self, isChecked, checkbox_index):
         """
             Change checkbox status
         """
         
         if isChecked:
-            self.checkbox_values[checkbox_index][1] = True
+            self.edit_teaching_checkbox_values[checkbox_index][1] = True
         else:
-            self.checkbox_values[checkbox_index][1] = False
+            self.edit_teaching_checkbox_values[checkbox_index][1] = False
 
     
     def edit_point_dialog_button_clicked_teaching(self, button_value):
@@ -765,7 +1003,7 @@ class FastSimWorld(World):
         """
 
         if button_value == 1:
-            for point_name, checkbox_state in self.checkbox_values:
+            for point_name, checkbox_state in self.edit_teaching_checkbox_values:
                 if checkbox_state:
                     removed_point = self.teach_point_temp.pop(point_name)
                     print("[Info] 该示教点已被移除:", removed_point)
@@ -859,13 +1097,14 @@ class FastSimWorld(World):
         """
 
         self.plan_dialog = DirectDialog(dialogName='Plan',
-                                        pos=(0, 0, 0.5),
+                                        pos=(0.4, 0, -0.2),
                                         scale=(0.4, 0.4, 0.4),
                                         buttonTextList=['Preview', 'Plan', 'Stop', 'Record', 'Cancel'],
                                         buttonValueList=[1, 2, 3, 4, 0],
                                         frameSize=(-1.0, 1.0, 0, 1.0),
-                                        frameColor=(0.7,0.7,0.7,0.5),
-                                        command=self.plan_dialog_button_clicked_moving)
+                                        frameColor=(0.8, 0.8, 0.8, 0.9),
+                                        command=self.plan_dialog_button_clicked_moving,
+                                        parent=self.frame_middle)
         
         self.plan_dialog.buttonList[0].setPos((0.2, 0, 0.2))
         self.plan_dialog.buttonList[1].setPos((0.2, 0, 0.1))
@@ -873,7 +1112,7 @@ class FastSimWorld(World):
         self.plan_dialog.buttonList[3].setPos((0.5, 0, 0.1))
         self.plan_dialog.buttonList[4].setPos((0.8, 0, 0.1))
 
-        DirectLabel(text="Start", 
+        DirectLabel(text="Start",
                     pos=(-0.8, 0, 0.8),
                     scale=0.07,
                     parent=self.plan_dialog)
@@ -883,6 +1122,13 @@ class FastSimWorld(World):
                     scale=0.07,
                     parent=self.plan_dialog)
         
+        # Prevent from crash
+        if not self.teach_point_temp:
+            init_conf = list(np.rad2deg(self.init_conf))
+            for i in range(6):
+                init_conf[i] = round(float(init_conf[i]), 3)
+            self.teach_point_temp['zero-config'] = init_conf
+
         options = list(self.teach_point_temp.keys())
 
         self.start_option_menu = DirectOptionMenu(text_pos=(1, -0.4),
@@ -908,7 +1154,7 @@ class FastSimWorld(World):
         """
             Behaviors when 'Plan' dialog buttons clicked
         """
-        
+
         start_conf = np.deg2rad(self.teach_point_temp[self.start_option_menu.get()])
         goal_conf = np.deg2rad(self.teach_point_temp[self.goal_option_menu.get()])
 
@@ -1067,7 +1313,6 @@ class FastSimWorld(World):
             Executing the path 
         """
 
-        #TODO:这里self.path要替换成self.path_temp
         if self.path:
             if self.robot_meshmodel is not None:
                 self.robot_meshmodel.detach()
@@ -1109,7 +1354,6 @@ class FastSimWorld(World):
                 cur_jnt_values = self.robot.get_jnt_values()
                 for i in range(6):
                     self.slider_values[i][0].setValue(np.rad2deg(cur_jnt_values)[i])
-
             
             print("[Info] 机器人运行结束")
         
@@ -1132,15 +1376,17 @@ class FastSimWorld(World):
 
         print("[Info] editing paths")
 
-        self.checkbox_values = []
+        self.edit_path_checkbox_values = []
 
         self.edit_path_dialog = DirectDialog(dialogName='Edit Paths',
+                                            pos=(-0.5, 0, -0.2),
                                             scale=(0.4, 0.4, 0.4),
                                             buttonTextList=['Remove', 'Close'],
                                             buttonValueList=[1, 0],
                                             frameSize=(-1.5,1.5,-0.1-0.1*len(self.path_temp),1),
-                                            frameColor=(0.7,0.7,0.7,0.5),
-                                            command=self.edit_path_dialog_button_clicked_teaching)
+                                            frameColor=(0.8,0.8,0.8,0.9),
+                                            command=self.edit_path_dialog_button_clicked_teaching,
+                                            parent=self.path_mgr_menu_frame)
         
         self.edit_path_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.path_temp)))
         self.edit_path_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.path_temp)))
@@ -1155,24 +1401,33 @@ class FastSimWorld(World):
                     scale=0.07,
                     parent=self.edit_path_dialog)
         
-        row = 0
         for i, (path_name, _) in enumerate(self.path_temp.items()):
             DirectLabel(text=path_name, 
-                        pos=(-1.2, 0, 0.6-row*0.1), 
+                        pos=(-1.2, 0, 0.6-i*0.1), 
                         scale=0.07, 
                         parent=self.edit_path_dialog)
             
-            DirectCheckButton(pos=(1.2, 0, 0.6-row*0.1),
+            DirectCheckButton(pos=(1.2, 0, 0.6-i*0.1),
                             scale=0.07, 
-                            command=self.checkbox_status_change,
+                            command=self.edit_path_checkbox_status_change,
                             extraArgs=[i],
                             frameColor=(1, 1, 1, 1),
                             parent=self.edit_path_dialog)
-            row += 1
 
-            self.checkbox_values.append([path_name, False])
+            self.edit_path_checkbox_values.append([path_name, False])
 
     
+    def edit_path_checkbox_status_change(self, isChecked, checkbox_index):
+        """
+            Change checkbox status
+        """
+        
+        if isChecked:
+            self.edit_path_checkbox_values[checkbox_index][1] = True
+        else:
+            self.edit_path_checkbox_values[checkbox_index][1] = False
+
+
     def edit_path_dialog_button_clicked_teaching(self, button_value):
         """
             Behaviors when 'Edit Path' dialog buttons clicked
@@ -1201,11 +1456,11 @@ class FastSimWorld(World):
         print("[Info] exporting path")
 
         self.export_path_dialog = DirectDialog(dialogName='Export Path',
-                            text='Export path to:',
-                            scale=(0.7, 0.7, 0.7),
-                            buttonTextList=['OK', 'Cancel'],
-                            buttonValueList=[1, 0],
-                            command=self.export_path_dialog_button_clicked_moving)
+                                    text='Export path to:',
+                                    scale=(0.7, 0.7, 0.7),
+                                    buttonTextList=['OK', 'Cancel'],
+                                    buttonValueList=[1, 0],
+                                    command=self.export_path_dialog_button_clicked_moving)
 
         entry = DirectEntry(scale=0.04,
                             width=10,
