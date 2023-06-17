@@ -40,13 +40,17 @@ class URFastSimWorld(FastSimWorld):
         self.robot_meshmodel.attach_to(self)
     
     
-    def real_robot_moving(self):
+    def real_robot_moving(self, targets):
         """
             UR5e robot move
         """
-        self.robot_r.move_jnts(np.rad2deg(self.path[0]))
-        if self.path:
-            self.robot_r.move_jntspace_path(self.path)
+
+        for target in targets:
+            if target[0] == 'point':
+                self.robot_r.move_jnts(np.rad2deg(target[1]))
+            else:
+                self.robot_r.move_jnts(np.rad2deg(target[1][0]))
+                self.robot_r.move_jntspace_path(target[1])
 
 
 if __name__ == "__main__":
