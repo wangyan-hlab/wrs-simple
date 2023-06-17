@@ -55,12 +55,9 @@ class URFastSimWorld(FastSimWorld):
 
 if __name__ == "__main__":
 
-    from robot_sim.robots.ur5e import ur5e
-    from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
-
     # WRS planning simulation
     robot_connect = False
-    base = URFastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
+    base = URFastSimWorld(robot_connect=robot_connect)
     base.start()
 
     base.run()

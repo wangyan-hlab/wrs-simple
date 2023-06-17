@@ -59,9 +59,6 @@ class FRFastSimWorld(FastSimWorld):
 
 if __name__ == "__main__":
 
-    from robot_sim.robots.fr5 import fr5
-    from fr_python_sdk.frmove import FRCobot as fr5_real
-
     # WRS planning simulation
     robot_connect = False
     base = FRFastSimWorld(robot_connect=robot_connect)
