@@ -45,29 +45,38 @@ class FastSimWorld(World):
 
         gm.gen_frame().attach_to(self)  # attach a world frame
 
-        self.path = []              # planned path
-        self.endplanningtask = 1    # flag to stop animation
+        self.robot_ip = '192.168.58.2'
+        self.pc_ip = '192.168.58.70'
+        self.robot_connect = robot_connect
         self.robot = None           # sim robot
-        self.robot_r = None         # real robot
-        self.robot_plan = None      # visual robot for animation
         self.component_name = None
-
+        self.robot_r = None         # real robot
         self.robot_teach = None     # visual robot for teaching
+        self.robot_plan = None      # visual robot for animation
+        
         self.teach_point_temp = {}  # saving points temporarily
         self.path_temp = {}         # saving paths temporarily
-        self.start_end_conf = []    # saving teaching start and goal points
+        self.task_temp = {}         # saving execution sequence of paths/points temporarily
+        self.task_targets = []
+        self.model_temp = {}        # saving models shown on the screen temporarily
+
+        self.start_end_conf = []    # saving planning start and goal points
+        self.path = []              # planned path
+        self.endplanningtask = 1    # flag to stop animation
+
         self.start_meshmodel = None 
         self.goal_meshmodel = None
         self.robot_meshmodel = None
         self.tcp_ball_meshmodel = []
+        self.static_models = []
+        self.wobj_models = []
+        
         self.slider_values = []
         self.tcp_values = []
-        self.robot_connect = robot_connect
         self.init_conf = init_conf
         self.real_robot_conf = np.zeros(6)
         self.joint_limits = None
-        self.task_temp = {}      # saving execution sequence of paths/points temporarily
-        self.task_targets = []
+        
         self.vfs = vfs.get_global_ptr()
 
         
@@ -547,27 +556,42 @@ class FastSimWorld(World):
     """
         MODELING - 模型构建模块
     """
-    def static_modeling(self):
+    def static_modeling(self, model_name, model_pose, model_color):
         """
             Setting static surrounding models
         """
 
-        pass
+        print("[Info] Setting static surrounding models")
+        static_model = cm.CollisionModel(f"objects/{model_name}.stl")
+        pos = model_pose[:3]
+        rotmat = rm.rotmat_from_euler(model_pose[3],model_pose[4],model_pose[5])
+        static_model.set_pose(pos, rotmat)
+        static_model.set_rgba(model_color)
+        static_model.attach_to(self)
+        self.static_models.append([model_name, static_model])
 
 
-    def wobj_modeling(self):
+    def wobj_modeling(self, model_name, model_pose, model_color):
         """
             Setting work object models
         """
 
-        pass
+        print("[Info] Setting work object models")
+        wobj_model = cm.CollisionModel(f"objects/{model_name}.stl")
+        pos = model_pose[:3]
+        rotmat = rm.rotmat_from_euler(model_pose[3:])
+        wobj_model.set_pose(pos, rotmat)
+        wobj_model.set_rgba(model_color)
+        wobj_model.attach_to(self)
+        self.wobj_models.append([model_name, wobj_model])
 
     
     def robot_modeling(self, robot_s, component):
         """
-            Setting robot models
+            Setting robot model
         """
 
+        print("[Info] Setting robot model")
         self.component_name = component
         self.robot = robot_s
         self.robot_meshmodel = self.robot.gen_meshmodel()
@@ -594,7 +618,112 @@ class FastSimWorld(World):
             Editing models
         """
 
-        print("[TODO] editing model")
+        print("[Info] editing model")
+
+        self.edit_modeling_checkbox_values = []
+
+        self.edit_model_dialog = DirectDialog(dialogName='Edit Models',
+                                            pos=(-0.5, 0, -0.2),
+                                            scale=(0.4, 0.4, 0.4),
+                                            buttonTextList=['Remove', 'Close'],
+                                            buttonValueList=[1, 0],
+                                            frameSize=(-1.5,1.5,-0.1-0.1*len(self.model_temp),1),
+                                            frameColor=(0.8,0.8,0.8,0.9),
+                                            command=self.edit_model_dialog_button_clicked_modeling,
+                                            parent=self.model_mgr_menu_frame)
+        
+        self.edit_model_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.model_temp)))
+        self.edit_model_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.model_temp)))
+
+        DirectLabel(text="Model Name", 
+                    pos=(-1.0, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_model_dialog)
+        
+        DirectLabel(text="Remove", 
+                    pos=(1.0, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_model_dialog)
+        
+        model_infos = []
+        for i in range(len(self.model_temp.items())):
+            model_type = list(self.model_temp)[i]
+
+            if model_type == 'robot':
+                model_infos.append([model_type, self.model_temp[model_type][0]])
+            else:
+                for model in self.model_temp[model_type]:
+                    model_name = model[0]
+                    model_infos.append([model_type, model_name])
+
+        for i, [model_type, model_name] in enumerate(model_infos):
+            DirectLabel(text=model_name,
+                        pos=(-1.0, 0, 0.6-i*0.1), 
+                        scale=0.07, 
+                        parent=self.edit_model_dialog)
+            
+            if model_name:
+                DirectCheckButton(pos=(1.0, 0, 0.6-i*0.1),
+                                scale=0.07, 
+                                command=self.edit_modeling_checkbox_status_change,
+                                extraArgs=[i],
+                                frameColor=(1, 1, 1, 1),
+                                parent=self.edit_model_dialog)
+
+            self.edit_modeling_checkbox_values.append([model_type, model_name, False])
+
+
+    def edit_modeling_checkbox_status_change(self, isChecked, checkbox_index):
+        """
+            Change checkbox status
+        """
+        
+        if isChecked:
+            self.edit_modeling_checkbox_values[checkbox_index][2] = True
+        else:
+            self.edit_modeling_checkbox_values[checkbox_index][2] = False
+
+    
+    def edit_model_dialog_button_clicked_modeling(self, button_value):
+        """
+            Behaviors when 'Edit Model' dialog buttons clicked
+        """
+
+        if button_value == 1:   # remove
+            for model_type, model_name, checkbox_state in self.edit_modeling_checkbox_values:
+                if checkbox_state:
+                    if model_type == 'robot':
+                        self.model_temp[model_type] = []
+                        removed_model = model_name
+                    elif model_type == 'static':
+                        # 获取'static'对应的列表
+                        static_list = self.model_temp['static']
+                        # 遍历列表，检查并删除满足条件的子列表
+                        for sublist in static_list:
+                            if sublist[0] == model_name:
+                                static_list.remove(sublist)
+                                removed_model = model_name
+                        # 更新字典中'static'对应的值
+                        self.model_temp['static'] = static_list
+                    elif model_type == 'wobj':
+                        # 获取'wobj'对应的列表
+                        wobj_list = self.model_temp['wobj']
+                        # 遍历列表，检查并删除满足条件的子列表
+                        for sublist in wobj_list:
+                            if sublist[0] == model_name:
+                                wobj_list.remove(sublist)
+                                removed_model = model_name
+                        # 更新字典中'wobj'对应的值
+                        self.model_temp['wobj'] = wobj_list
+                    print("[Info] 该Model已被移除:", removed_model)
+            self.edit_model_dialog.hide()
+            print("[Info] Edit Model completed")
+
+            self.edit_modeling()
+
+        else:   # close
+            self.edit_model_dialog.hide()
+            print("[Info] Edit Model dialog closed")
 
 
     def save_modeling(self):
@@ -602,7 +731,49 @@ class FastSimWorld(World):
             Exporting models
         """
 
-        print("[TODO] exporting model")
+        print("[Info] exporting models")
+
+        self.export_model_dialog = DirectDialog(dialogName='Export Models',
+                              text='Export models to:',
+                              scale=(0.7, 0.7, 0.7),
+                              buttonTextList=['OK', 'Cancel'],
+                              buttonValueList=[1, 0],
+                              command=self.export_model_dialog_button_clicked_gui)
+
+        entry = DirectEntry(scale=0.04,
+                            width=10,
+                            pos=(-0.2, 0, -0.1),
+                            initialText='',
+                            focus=1,
+                            frameColor=(1, 1, 1, 1),
+                            parent=self.export_model_dialog)
+        
+        self.export_model_entry = entry
+
+
+    def export_model_dialog_button_clicked_gui(self, button_value):
+        """
+            Behaviors when 'Export Model' dialog buttons clicked
+        """
+
+        if button_value == 1:   # ok
+            filename = self.export_model_entry.get()
+            
+            this_dir = os.path.split(__file__)[0]
+            dir = os.path.join(this_dir, 'config/models/')
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+            model_filepath = os.path.join(dir, f'{filename}.yaml')
+
+            with open(model_filepath, 'w', encoding='utf-8') as outfile:
+                yaml.dump(self.model_temp, outfile, default_flow_style=False)
+
+            self.export_model_dialog.hide()
+            print("[Info] 已保存Point的yaml文件")
+
+        else:   # cancel
+            self.export_model_dialog.hide()
+            print("[Info] Export Model dialog closed")
 
 
     def load_modeling(self):
@@ -610,7 +781,72 @@ class FastSimWorld(World):
             Importing models
         """
 
-        print("[TODO] importing model")
+        print("[Info] importing models")
+        
+        root = tk.Tk()
+        root.withdraw()
+        filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
+                                              initialdir="./config/models")
+        if filepath:
+            print("[Info] 导入的 Model 文件:", filepath)
+
+            self.model_temp = {}
+            with open(filepath, 'r', encoding='utf-8') as infile:
+                self.model_temp = yaml.load(infile, Loader=yaml.FullLoader)
+
+            print("[Info] 已导入Model:", self.model_temp.keys())
+
+        # import robot model
+        robot_model = self.model_temp['robot'][0]
+        if robot_model == 'ur5e':
+            from robot_sim.robots.ur5e import ur5e
+            from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+
+            robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
+            component = 'arm'
+
+            if self.robot_connect:
+                print("[Info] 机器人已连接")
+                self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                        pc_ip=self.pc_ip)
+                self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+            else:
+                print("[Info] 机器人未连接")
+                self.init_conf = np.zeros(6)
+
+        elif robot_model == 'fr5':
+            from robot_sim.robots.fr5 import fr5
+            from fr_python_sdk.frmove import FRCobot as fr5_real
+
+            robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
+            component = 'arm'
+            if self.robot_connect:
+                print("[Info] 机器人已连接")
+                self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+            else:
+                print("[Info] 机器人未连接")
+                self.init_conf = np.zeros(6)
+
+        self.robot_modeling(robot_s, component)
+        
+        # import static models
+        static_models = self.model_temp['static']
+        for static_model in static_models:
+            static_model_name = static_model[0]
+            static_model_pose = static_model[1]
+            static_model_color = static_model[2]
+            if static_model_name:
+                self.static_modeling(static_model_name, static_model_pose, static_model_color)
+
+        # import wobj models
+        wobj_models = self.model_temp['wobj']
+        for wobj_model in wobj_models:
+            wobj_model_name = wobj_model[0]
+            wobj_model_pose = wobj_model[1]
+            wobj_model_color = wobj_model[2]
+            if wobj_model_name:
+                self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
 
     
     """
@@ -954,10 +1190,13 @@ class FastSimWorld(World):
             # if len(self.start_end_conf) == 2:
             [start_conf, goal_conf] = self.start_end_conf
             rrtc_planner = rrtc.RRTConnect(base.robot_plan)
+            static_obstacle_list = [sublist[1] for sublist in self.static_models]
+            wobj_obstacle_list = [sublist[1] for sublist in self.wobj_models]
+            obstacle_list = static_obstacle_list + wobj_obstacle_list
             self.path = rrtc_planner.plan(component_name=base.component_name,
                                         start_conf=start_conf,
                                         goal_conf=goal_conf,
-                                        obstacle_list=[],
+                                        obstacle_list=obstacle_list,
                                         ext_dist=0.05,
                                         max_time=300)
             time_end = time.time()
@@ -1193,12 +1432,12 @@ class FastSimWorld(World):
         self.edit_path_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.path_temp)))
 
         DirectLabel(text="Path Name", 
-                    pos=(-1.2, 0, 0.8),
+                    pos=(-1.0, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_path_dialog)
         
         DirectLabel(text="Remove", 
-                    pos=(1.2, 0, 0.8),
+                    pos=(1.0, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_path_dialog)
         

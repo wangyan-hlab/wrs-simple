@@ -64,25 +64,8 @@ if __name__ == "__main__":
 
     # WRS planning simulation
     robot_connect = False
-    robot_ip = '192.168.58.2'
-    pc_ip = '192.168.58.70'
-
-    if robot_connect:
-        print("[Info] 机器人已连接")
-        robot_r = fr5_real(robot_ip=robot_ip)
-        init_conf = robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
-    else:
-        print("[Info] 机器人未连接")
-        init_conf = np.zeros(6)
-    
-    base = FRFastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
+    base = FRFastSimWorld(robot_connect=robot_connect)
     base.start()
-    
-    if robot_connect:
-        base.robot_r = robot_r
-    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
-    component = 'arm'
-    base.robot_modeling(robot_s, component)
     
     base.run()
     

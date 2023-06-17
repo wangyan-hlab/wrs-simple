@@ -60,26 +60,8 @@ if __name__ == "__main__":
 
     # WRS planning simulation
     robot_connect = False
-    robot_ip = '192.168.58.2'
-    pc_ip = '192.168.58.70'
-
-    if robot_connect:
-        print("[Info] 机器人已连接")
-        robot_r = ur5e_real(robot_ip=robot_ip, pc_ip=pc_ip)
-        init_conf = robot_r.get_jnt_values()  # 实际机器人的初始关节角度
-    else:
-        print("[Info] 机器人未连接")
-        init_conf = np.zeros(6)
-
     base = URFastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
     base.start()
-    
-    if robot_connect:
-        base.robot_r = robot_r
-    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
-    component = 'arm'
-    base.robot_modeling(robot_s, component)
-    
-    base.setFrameRateMeter(True)
+
     base.run()
     
