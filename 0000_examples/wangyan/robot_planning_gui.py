@@ -74,6 +74,10 @@ class FastSimWorld(World):
         self.init_conf = init_conf
         self.real_robot_conf = np.zeros(6)
         self.joint_limits = None
+        self.model_pose_values = []
+        self.model_color_values = []
+        self.model_init_pose_values = {}
+        self.model_init_color_values = {}
         
         self.vfs = vfs.get_global_ptr()
 
@@ -584,7 +588,7 @@ class FastSimWorld(World):
         self.wobj_models.append([model_name, wobj_model])
 
     
-    def robot_modeling(self, robot_s, component):
+    def robot_modeling(self, robot_s, component, pos=np.zeros(3), rotmat=np.eye(3)):
         """
             Setting robot model
         """
@@ -592,10 +596,13 @@ class FastSimWorld(World):
         print("[Info] Setting robot model")
         self.component_name = component
         self.robot = robot_s
+        self.robot.fix_to(pos, rotmat)
         self.robot_meshmodel = self.robot.gen_meshmodel()
         self.robot_meshmodel.attach_to(self)
         self.robot_teach = robot_s
+        self.robot_teach.fix_to(pos, rotmat)
         self.robot_plan = robot_s
+        self.robot_plan.fix_to(pos, rotmat)
 
         if self.robot_connect:
             print("[Info] 机器人初始角度(deg): ", np.rad2deg(self.init_conf))
@@ -618,6 +625,7 @@ class FastSimWorld(World):
 
         print("[Info] editing model")
 
+        self.edit_modeling_pose_color_values = []
         self.edit_modeling_checkbox_values = []
 
         self.edit_model_dialog = DirectDialog(dialogName='Edit Models',
@@ -629,12 +637,17 @@ class FastSimWorld(World):
                                             frameColor=(0.8,0.8,0.8,0.9),
                                             command=self.edit_model_dialog_button_clicked_modeling,
                                             parent=self.model_mgr_menu_frame)
-        
+
         self.edit_model_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.model_temp)))
         self.edit_model_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.model_temp)))
 
         DirectLabel(text="Model Name", 
                     pos=(-1.0, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_model_dialog)
+        
+        DirectLabel(text="Set Pose/Color", 
+                    pos=(0.2, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_model_dialog)
         
@@ -657,12 +670,20 @@ class FastSimWorld(World):
                         model_infos.append([model_type, model_name])
 
         for i, [model_type, model_name] in enumerate(model_infos):
-            DirectLabel(text=model_name,
+            if model_name:
+                DirectLabel(text=model_name,
                         pos=(-1.0, 0, 0.6-i*0.1), 
                         scale=0.07, 
                         parent=self.edit_model_dialog)
-            
-            if model_name:
+                
+                edit_pose_color_button = DirectButton(text="Set",
+                                                    pos=(0.2, 0, 0.6-i*0.1),
+                                                    scale=(0.04, 0.04, 0.04),
+                                                    frameSize=(-4, 4, -1, 1),
+                                                    command=self.edit_model_pose_color_modeling,
+                                                    extraArgs=[i, model_type, model_name],
+                                                    parent=self.edit_model_dialog)
+
                 DirectCheckButton(pos=(1.0, 0, 0.6-i*0.1),
                                 scale=0.07, 
                                 command=self.edit_modeling_checkbox_status_change,
@@ -670,7 +691,132 @@ class FastSimWorld(World):
                                 frameColor=(1, 1, 1, 1),
                                 parent=self.edit_model_dialog)
 
+            self.edit_modeling_pose_color_values.append([model_type, model_name, edit_pose_color_button])
             self.edit_modeling_checkbox_values.append([model_type, model_name, False])
+
+
+    def edit_model_pose_color_modeling(self, index, model_type, model_name):
+        """
+            Behaviors when set pose/color buttons clicked
+        """
+
+        self.model_pose_values = []
+        self.model_color_values = []
+
+        self.pose_color_dialog = DirectDialog(pos=(-0.5, 0, -0.5-0.1*index),
+                                        buttonTextList=['OK', 'Close'],
+                                        buttonValueList=[1, 0],
+                                        frameSize=(-1.0, 1.0, -0.5, 1.0),
+                                        frameColor=(0.8,0.8,0.8,0.9),
+                                        command=self.pose_color_dialog_button_clicked_modeling,
+                                        extraArgs=[index, model_type, model_name],
+                                        parent=self.edit_model_dialog)
+        
+        self.pose_color_dialog.buttonList[0].setPos((0.6, 0, -0.4))
+        self.pose_color_dialog.buttonList[1].setPos((0.8, 0, -0.4))
+
+        DirectLabel(text="Model Pose / Color",
+                    pos=(-0.6, 0, 0.8),
+                    scale=0.07,
+                    parent=self.pose_color_dialog)
+        
+        pose_params = ['x','y','z','rx','ry','rz']
+        for i in range(6):
+            DirectLabel(text=pose_params[i],
+                        pos=(-0.9, 0, 0.55-0.15*i),
+                        scale=0.06,
+                        parent=self.pose_color_dialog)
+            model_init_pose_values = self.model_init_pose_values[f"{model_type}-{model_name}"]
+            pose_entry = DirectEntry(scale=0.06,
+                                    width=10,
+                                    pos=(-0.8, 0, 0.55-0.15*i),
+                                    initialText=str(model_init_pose_values[i]),
+                                    focus=1,
+                                    frameColor=(1, 1, 1, 1),
+                                    parent=self.pose_color_dialog)
+            self.model_pose_values.append(pose_entry)
+            
+        color_params = ['R','G','B','Alpha']
+        if model_type != 'robot':
+            for i in range(4):
+                DirectLabel(text=color_params[i],
+                            pos=(0.1, 0, 0.55-0.15*i),
+                            scale=0.06,
+                            parent=self.pose_color_dialog)
+                model_init_color_values = self.model_init_color_values[f"{model_type}-{model_name}"]
+                color_entry = DirectEntry(scale=0.06,
+                                        width=10,
+                                        pos=(0.2, 0, 0.55-0.15*i),
+                                        initialText=str(model_init_color_values[i]),
+                                        focus=1,
+                                        frameColor=(1, 1, 1, 1),
+                                        parent=self.pose_color_dialog)
+                self.model_color_values.append(color_entry)
+    
+
+    def pose_color_dialog_button_clicked_modeling(self, button_value, index, model_type, model_name):
+        """
+            Behaviors of pose/color dialog buttons
+        """
+
+        if button_value == 1:   # implement pose/color parameters
+            pose_value = []
+            color_value = []
+
+            for i in range(6):
+                value = self.model_pose_values[i].get()
+                pose_value.append(float(value))
+            self.model_init_pose_values[f"{model_type}-{model_name}"] = pose_value
+
+            if model_type != 'robot':
+                for i in range(4):
+                    value = self.model_color_values[i].get()
+                    color_value.append(float(value))
+            self.model_init_color_values[f"{model_type}-{model_name}"] = color_value
+            
+            if model_type == 'static':
+                modelnames = [sublist[0] for sublist in self.static_models]
+                model_index = modelnames.index(model_name)
+                self.static_models[model_index][1].detach()
+                self.static_models.pop(model_index)
+
+                modelnames = [sublist[0] for sublist in self.model_temp['static']]
+                # model_color = self.model_temp['static'][modelnames.index(model_name)][2]
+                self.model_temp['static'][modelnames.index(model_name)][1] = pose_value
+                self.model_temp['static'][modelnames.index(model_name)][2] = color_value
+                self.static_modeling(model_name, pose_value, color_value)
+            
+            elif model_type == 'wobj':
+                modelnames = [sublist[0] for sublist in self.wobj_models]
+                model_index = modelnames.index(model_name)
+                self.wobj_models[model_index][1].detach()
+                self.wobj_models.pop(model_index)
+
+                modelnames = [sublist[0] for sublist in self.model_temp['wobj']]
+                self.model_temp['wobj'][modelnames.index(model_name)][1] = pose_value
+                self.model_temp['wobj'][modelnames.index(model_name)][2] = color_value
+                self.wobj_modeling(model_name, pose_value, color_value)
+            
+            
+            else:   # model_type == 'robot'
+                for robot_model in [self.robot_meshmodel, self.start_meshmodel, 
+                                        self.goal_meshmodel, self.rbtonscreen[0]]:
+                    if robot_model is not None:
+                        robot_model.detach()
+                
+                modelnames = self.model_temp['robot'][0]
+                self.model_temp['robot'][1] = pose_value
+                pos = pose_value[:3]
+                rotmat = rm.rotmat_from_euler(pose_value[3],pose_value[4],pose_value[5])
+                self.robot.fix_to(pos, rotmat)
+                self.robot_teach.fix_to(pos, rotmat)
+                self.robot_plan.fix_to(pos, rotmat)
+                self.robot_meshmodel = self.robot.gen_meshmodel()
+                self.robot_meshmodel.attach_to(self)
+                
+        else:   # close
+            print("[Info] Pose/Color dialog closed")
+            self.pose_color_dialog.hide()
 
 
     def edit_modeling_checkbox_status_change(self, isChecked, checkbox_index):
@@ -715,7 +861,13 @@ class FastSimWorld(World):
                                 removed_model = model_name
                         # 更新字典中'wobj'对应的值
                         self.model_temp['wobj'] = wobj_list
+
+                    self.model_init_pose_values.pop(f"{model_type}-{model_name}")
+                    if model_type != 'robot':
+                        self.model_init_color_values.pop(f"{model_type}-{model_name}")
+
                     print("[Info] 该Model已被移除:", removed_model)
+                    
             self.edit_model_dialog.hide()
             print("[Info] Edit Model completed")
 
@@ -733,8 +885,7 @@ class FastSimWorld(World):
             if 'static' in self.model_temp:
                 new_modelnames = [sublist[0] for sublist in self.model_temp['static'] if sublist]
                 old_modelnames = [sublist[0] for sublist in self.static_models if sublist]
-                print("new_static_modelnames = ", new_modelnames)
-                print("old_static_modelnames = ", old_modelnames)
+
                 for modelname in old_modelnames:
                     if modelname not in new_modelnames:
                         model_index = old_modelnames.index(modelname)
@@ -745,15 +896,14 @@ class FastSimWorld(World):
             if 'wobj' in self.model_temp:
                 new_modelnames = [sublist[0] for sublist in self.model_temp['wobj'] if sublist]
                 old_modelnames = [sublist[0] for sublist in self.wobj_models if sublist]
-                print("new_wobj_modelnames = ", new_modelnames)
-                print("old_wobj_modelnames = ", old_modelnames)
+
                 for modelname in old_modelnames:
                     if modelname not in new_modelnames:
                         model_index = old_modelnames.index(modelname)
                         self.wobj_models[model_index][1].detach()
                         removed_model = self.wobj_models.pop(model_index)
                         print("removed wobj model:", removed_model)
-            
+
             self.edit_model_dialog.hide()
             print("[Info] Edit Model dialog closed")
 
@@ -834,7 +984,7 @@ class FastSimWorld(World):
             filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                                 initialdir="./config/models")
             if filepath:
-                print("[Info] 导入的 YAML 文件:", filepath)
+                print("[Info] 导入的Model YAML文件:", filepath)
 
                 self.model_temp = {}
                 self.static_models = []
@@ -847,11 +997,17 @@ class FastSimWorld(World):
             # import models from yaml file
             if self.model_temp:
                 robot_model = self.model_temp['robot'][0]
+                robot_model_pose = self.model_temp['robot'][1]
+                robot_pos = robot_model_pose[:3]
+                robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
+                                                    robot_model_pose[4],
+                                                    robot_model_pose[5])
                 if robot_model == 'ur5e':
                     from robot_sim.robots.ur5e import ur5e
                     from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 
-                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
+                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
+                                         pos=robot_pos, rotmat=robot_rotmat)
                     component = 'arm'
 
                     if self.robot_connect:
@@ -867,7 +1023,9 @@ class FastSimWorld(World):
                     from robot_sim.robots.fr5 import fr5
                     from fr_python_sdk.frmove import FRCobot as fr5_real
 
-                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
+                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                                        pos=robot_pos, rotmat=robot_rotmat,
+                                        zrot_to_gndbase=0)
                     component = 'arm'
                     if self.robot_connect:
                         print("[Info] 机器人已连接")
@@ -877,6 +1035,7 @@ class FastSimWorld(World):
                         print("[Info] 机器人未连接")
                         self.init_conf = np.zeros(6)
 
+                self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
                 self.robot_modeling(robot_s, component)
             
                 # import static models
@@ -886,6 +1045,9 @@ class FastSimWorld(World):
                     static_model_pose = static_model[1]
                     static_model_color = static_model[2]
                     if static_model_name:
+                        self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
+                        self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
+                    
                         self.static_modeling(static_model_name, static_model_pose, static_model_color)
 
                 # import wobj models
@@ -895,6 +1057,9 @@ class FastSimWorld(World):
                     wobj_model_pose = wobj_model[1]
                     wobj_model_color = wobj_model[2]
                     if wobj_model_name:
+                        self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
+                        self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
+                    
                         self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
             
             self.import_model_dialog.hide()
@@ -905,47 +1070,58 @@ class FastSimWorld(World):
             filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                                 initialdir="./config/models")
             if filepath:
-                print("[Info] 导入的 Robot Model 文件:", filepath)
+                print("[Info] 导入的Robot Model文件:", filepath)
 
                 with open(filepath, 'r', encoding='utf-8') as infile:
                     robot = yaml.load(infile, Loader=yaml.FullLoader)
                     self.model_temp['robot'] = robot['robot']
                      
-                print("[Info] 已导入 Robot Model:", self.model_temp['robot'])
+                print("[Info] 已导入Robot Model:", self.model_temp['robot'])
             
             # import models from yaml file
-            robot_model = self.model_temp['robot'][0]
-            if robot_model == 'ur5e':
-                from robot_sim.robots.ur5e import ur5e
-                from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+            if 'robot' in self.model_temp:
+                robot_model = self.model_temp['robot'][0]
+                robot_model_pose = self.model_temp['robot'][1]
+                robot_pos = robot_model_pose[:3]
+                robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
+                                                    robot_model_pose[4],
+                                                    robot_model_pose[5])
+                
+                if robot_model == 'ur5e':
+                    from robot_sim.robots.ur5e import ur5e
+                    from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 
-                robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
-                component = 'arm'
+                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False,
+                                         pos=robot_pos, rotmat=robot_rotmat)
+                    component = 'arm'
 
-                if self.robot_connect:
-                    print("[Info] 机器人已连接")
-                    self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
-                                            pc_ip=self.pc_ip)
-                    self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
-                else:
-                    print("[Info] 机器人未连接")
-                    self.init_conf = np.zeros(6)
+                    if self.robot_connect:
+                        print("[Info] 机器人已连接")
+                        self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                                pc_ip=self.pc_ip)
+                        self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+                    else:
+                        print("[Info] 机器人未连接")
+                        self.init_conf = np.zeros(6)
 
-            elif robot_model == 'fr5':
-                from robot_sim.robots.fr5 import fr5
-                from fr_python_sdk.frmove import FRCobot as fr5_real
+                elif robot_model == 'fr5':
+                    from robot_sim.robots.fr5 import fr5
+                    from fr_python_sdk.frmove import FRCobot as fr5_real
 
-                robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
-                component = 'arm'
-                if self.robot_connect:
-                    print("[Info] 机器人已连接")
-                    self.robot_r = fr5_real(robot_ip=self.robot_ip)
-                    self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
-                else:
-                    print("[Info] 机器人未连接")
-                    self.init_conf = np.zeros(6)
+                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                                        pos=robot_pos, rotmat=robot_rotmat,
+                                        zrot_to_gndbase=0)
+                    component = 'arm'
+                    if self.robot_connect:
+                        print("[Info] 机器人已连接")
+                        self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                        self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+                    else:
+                        print("[Info] 机器人未连接")
+                        self.init_conf = np.zeros(6)
 
-            self.robot_modeling(robot_s, component)
+                self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                self.robot_modeling(robot_s, component)
             self.import_model_dialog.hide()
 
         elif button_value == 3: # import from model file
@@ -963,26 +1139,30 @@ class FastSimWorld(World):
             
                 if static_model:
                     static_model_name = static_model[0]
-                    static_model_pose = np.zeros(6)
-                    static_model_color = [0.4, 0.4, 0.4, 1]
+                    static_model_pose = [0,0,0,0,0,0]
+                    static_model_color = [1, 0, 0, 0.7]
 
                     if 'static' in self.model_temp:
                         self.model_temp['static'].append([static_model_name, static_model_pose, static_model_color])
                     else:
                         self.model_temp['static'] = [[static_model_name, static_model_pose, static_model_color]]
                     
+                    self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
+                    self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
                     self.static_modeling(static_model_name, static_model_pose, static_model_color)
                 
                 if wobj_model:
                     wobj_model_name = wobj_model[0]
-                    wobj_model_pose = np.zeros(6)
-                    wobj_model_color = [1, 0, 0, 1]
+                    wobj_model_pose = [0,0,0,0,0,0]
+                    wobj_model_color = [1, 0, 0, 0.7]
 
                     if 'wobj' in self.model_temp:
                         self.model_temp['wobj'].append([wobj_model_name, wobj_model_pose, wobj_model_color])
                     else:
                         self.model_temp['wobj'] = [[wobj_model_name, wobj_model_pose, wobj_model_color]]
 
+                    self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
+                    self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
                     self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
             
             self.import_model_dialog.hide()
@@ -1488,11 +1668,9 @@ class FastSimWorld(World):
             for target_num, [target_type, target_name] in self.task_temp.items():
                 if target_type == 'path':
                     target = self.path_temp[target_name]
-                    print("target_path =", target)
                     execute_targets.append(['path', np.deg2rad(target)])
                 else:
                     target = self.teach_point_temp[target_name]
-                    print("target_point =", target)
                     execute_targets.append(['point', np.deg2rad(target)])
 
             if execute_targets:
