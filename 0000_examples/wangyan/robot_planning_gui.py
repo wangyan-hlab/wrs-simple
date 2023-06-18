@@ -564,7 +564,7 @@ class FastSimWorld(World):
         """
 
         print("[Info] Setting static surrounding models")
-        static_model = cm.CollisionModel(f"objects/static/{model_name}.stl")
+        static_model = cm.CollisionModel(f"objects/other/static/{model_name}.stl")
         pos = model_pose[:3]
         rotmat = rm.rotmat_from_euler(model_pose[3],model_pose[4],model_pose[5])
         static_model.set_pose(pos, rotmat)
@@ -579,7 +579,7 @@ class FastSimWorld(World):
         """
 
         print("[Info] Setting work object models")
-        wobj_model = cm.CollisionModel(f"objects/wobj/{model_name}.stl")
+        wobj_model = cm.CollisionModel(f"objects/other/wobj/{model_name}.stl")
         pos = model_pose[:3]
         rotmat = rm.rotmat_from_euler(model_pose[3],model_pose[4],model_pose[5])
         wobj_model.set_pose(pos, rotmat)
@@ -1068,7 +1068,7 @@ class FastSimWorld(World):
             root = tk.Tk()
             root.withdraw()
             filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
-                                                initialdir="./config/models")
+                                                initialdir="./objects/robot")
             if filepath:
                 print("[Info] 导入的Robot Model文件:", filepath)
 
@@ -1128,7 +1128,7 @@ class FastSimWorld(World):
             root = tk.Tk()
             root.withdraw()
             filepath = filedialog.askopenfilename(filetypes=[("STL files", "*.stl")],
-                                                  initialdir="./objects")
+                                                  initialdir="./objects/other")
             
             if filepath:
                 print("[Info] 导入的 Model 文件:", filepath)
