@@ -1,7 +1,4 @@
-import os
-import time
-import yaml
-import copy
+import os, re, time, yaml, copy
 import tkinter as tk
 from tkinter import filedialog
 import numpy as np
@@ -53,7 +50,7 @@ class FastSimWorld(World):
         self.robot_r = None         # real robot
         self.robot_teach = None     # visual robot for teaching
         self.robot_plan = None      # visual robot for animation
-        
+
         self.teach_point_temp = {}  # saving points temporarily
         self.path_temp = {}         # saving paths temporarily
         self.task_temp = {}         # saving execution sequence of paths/points temporarily
@@ -67,6 +64,7 @@ class FastSimWorld(World):
         self.start_meshmodel = None 
         self.goal_meshmodel = None
         self.robot_meshmodel = None
+        self.rbtonscreen = [None]
         self.tcp_ball_meshmodel = []
         self.static_models = []
         self.wobj_models = []
@@ -562,7 +560,7 @@ class FastSimWorld(World):
         """
 
         print("[Info] Setting static surrounding models")
-        static_model = cm.CollisionModel(f"objects/{model_name}.stl")
+        static_model = cm.CollisionModel(f"objects/static/{model_name}.stl")
         pos = model_pose[:3]
         rotmat = rm.rotmat_from_euler(model_pose[3],model_pose[4],model_pose[5])
         static_model.set_pose(pos, rotmat)
@@ -577,9 +575,9 @@ class FastSimWorld(World):
         """
 
         print("[Info] Setting work object models")
-        wobj_model = cm.CollisionModel(f"objects/{model_name}.stl")
+        wobj_model = cm.CollisionModel(f"objects/wobj/{model_name}.stl")
         pos = model_pose[:3]
-        rotmat = rm.rotmat_from_euler(model_pose[3:])
+        rotmat = rm.rotmat_from_euler(model_pose[3],model_pose[4],model_pose[5])
         wobj_model.set_pose(pos, rotmat)
         wobj_model.set_rgba(model_color)
         wobj_model.attach_to(self)
@@ -650,11 +648,13 @@ class FastSimWorld(World):
             model_type = list(self.model_temp)[i]
 
             if model_type == 'robot':
-                model_infos.append([model_type, self.model_temp[model_type][0]])
+                if self.model_temp[model_type]:
+                    model_infos.append([model_type, self.model_temp[model_type][0]])
             else:
                 for model in self.model_temp[model_type]:
-                    model_name = model[0]
-                    model_infos.append([model_type, model_name])
+                    if model:
+                        model_name = model[0]
+                        model_infos.append([model_type, model_name])
 
         for i, [model_type, model_name] in enumerate(model_infos):
             DirectLabel(text=model_name,
@@ -722,6 +722,38 @@ class FastSimWorld(World):
             self.edit_modeling()
 
         else:   # close
+            # remove robot meshmodel
+            if 'robot' in self.model_temp:
+                if not self.model_temp['robot']:
+                    for robot_model in [self.robot_meshmodel, self.start_meshmodel, 
+                                        self.goal_meshmodel, self.rbtonscreen[0]]:
+                        if robot_model is not None:
+                            robot_model.detach()
+            # remove static meshmodel
+            if 'static' in self.model_temp:
+                new_modelnames = [sublist[0] for sublist in self.model_temp['static'] if sublist]
+                old_modelnames = [sublist[0] for sublist in self.static_models if sublist]
+                print("new_static_modelnames = ", new_modelnames)
+                print("old_static_modelnames = ", old_modelnames)
+                for modelname in old_modelnames:
+                    if modelname not in new_modelnames:
+                        model_index = old_modelnames.index(modelname)
+                        self.static_models[model_index][1].detach()
+                        removed_model = self.static_models.pop(model_index)
+                        print("removed static model:", removed_model)
+            # remove wobj meshmodel
+            if 'wobj' in self.model_temp:
+                new_modelnames = [sublist[0] for sublist in self.model_temp['wobj'] if sublist]
+                old_modelnames = [sublist[0] for sublist in self.wobj_models if sublist]
+                print("new_wobj_modelnames = ", new_modelnames)
+                print("old_wobj_modelnames = ", old_modelnames)
+                for modelname in old_modelnames:
+                    if modelname not in new_modelnames:
+                        model_index = old_modelnames.index(modelname)
+                        self.wobj_models[model_index][1].detach()
+                        removed_model = self.wobj_models.pop(model_index)
+                        print("removed wobj model:", removed_model)
+            
             self.edit_model_dialog.hide()
             print("[Info] Edit Model dialog closed")
 
@@ -738,7 +770,7 @@ class FastSimWorld(World):
                               scale=(0.7, 0.7, 0.7),
                               buttonTextList=['OK', 'Cancel'],
                               buttonValueList=[1, 0],
-                              command=self.export_model_dialog_button_clicked_gui)
+                              command=self.export_model_dialog_button_clicked_modeling)
 
         entry = DirectEntry(scale=0.04,
                             width=10,
@@ -751,7 +783,7 @@ class FastSimWorld(World):
         self.export_model_entry = entry
 
 
-    def export_model_dialog_button_clicked_gui(self, button_value):
+    def export_model_dialog_button_clicked_modeling(self, button_value):
         """
             Behaviors when 'Export Model' dialog buttons clicked
         """
@@ -782,71 +814,182 @@ class FastSimWorld(World):
         """
 
         print("[Info] importing models")
+
+        self.import_model_dialog = DirectDialog(dialogName='Import Models',
+                              text='Import models from:',
+                              scale=(0.7, 0.7, 0.7),
+                              buttonTextList=['YAML File', 'Robot Model', 'Other Models', 'Cancel'],
+                              buttonValueList=[1, 2, 3, 0],
+                              command=self.import_model_dialog_button_clicked_modeling)
+
         
-        root = tk.Tk()
-        root.withdraw()
-        filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
-                                              initialdir="./config/models")
-        if filepath:
-            print("[Info] 导入的 Model 文件:", filepath)
-
-            self.model_temp = {}
-            with open(filepath, 'r', encoding='utf-8') as infile:
-                self.model_temp = yaml.load(infile, Loader=yaml.FullLoader)
-
-            print("[Info] 已导入Model:", self.model_temp.keys())
-
-        # import robot model
-        robot_model = self.model_temp['robot'][0]
-        if robot_model == 'ur5e':
-            from robot_sim.robots.ur5e import ur5e
-            from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
-
-            robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
-            component = 'arm'
-
-            if self.robot_connect:
-                print("[Info] 机器人已连接")
-                self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
-                                        pc_ip=self.pc_ip)
-                self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
-            else:
-                print("[Info] 机器人未连接")
-                self.init_conf = np.zeros(6)
-
-        elif robot_model == 'fr5':
-            from robot_sim.robots.fr5 import fr5
-            from fr_python_sdk.frmove import FRCobot as fr5_real
-
-            robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
-            component = 'arm'
-            if self.robot_connect:
-                print("[Info] 机器人已连接")
-                self.robot_r = fr5_real(robot_ip=self.robot_ip)
-                self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
-            else:
-                print("[Info] 机器人未连接")
-                self.init_conf = np.zeros(6)
-
-        self.robot_modeling(robot_s, component)
+    def import_model_dialog_button_clicked_modeling(self, button_value):
+        """
+            Behaviors when 'Import Model' dialog buttons clicked
+        """
         
-        # import static models
-        static_models = self.model_temp['static']
-        for static_model in static_models:
-            static_model_name = static_model[0]
-            static_model_pose = static_model[1]
-            static_model_color = static_model[2]
-            if static_model_name:
-                self.static_modeling(static_model_name, static_model_pose, static_model_color)
+        if button_value == 1:   # import from yaml file
+            root = tk.Tk()
+            root.withdraw()
+            filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
+                                                initialdir="./config/models")
+            if filepath:
+                print("[Info] 导入的 YAML 文件:", filepath)
 
-        # import wobj models
-        wobj_models = self.model_temp['wobj']
-        for wobj_model in wobj_models:
-            wobj_model_name = wobj_model[0]
-            wobj_model_pose = wobj_model[1]
-            wobj_model_color = wobj_model[2]
-            if wobj_model_name:
-                self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
+                self.model_temp = {}
+                self.static_models = []
+                self.wobj_models = []
+                with open(filepath, 'r', encoding='utf-8') as infile:
+                    self.model_temp = yaml.load(infile, Loader=yaml.FullLoader)
+
+                print("[Info] 已导入Model:", self.model_temp.keys())
+            
+            # import models from yaml file
+            if self.model_temp:
+                robot_model = self.model_temp['robot'][0]
+                if robot_model == 'ur5e':
+                    from robot_sim.robots.ur5e import ur5e
+                    from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+
+                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
+                    component = 'arm'
+
+                    if self.robot_connect:
+                        print("[Info] 机器人已连接")
+                        self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                                pc_ip=self.pc_ip)
+                        self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+                    else:
+                        print("[Info] 机器人未连接")
+                        self.init_conf = np.zeros(6)
+
+                elif robot_model == 'fr5':
+                    from robot_sim.robots.fr5 import fr5
+                    from fr_python_sdk.frmove import FRCobot as fr5_real
+
+                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
+                    component = 'arm'
+                    if self.robot_connect:
+                        print("[Info] 机器人已连接")
+                        self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                        self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+                    else:
+                        print("[Info] 机器人未连接")
+                        self.init_conf = np.zeros(6)
+
+                self.robot_modeling(robot_s, component)
+            
+                # import static models
+                static_models = self.model_temp['static']
+                for static_model in static_models:
+                    static_model_name = static_model[0]
+                    static_model_pose = static_model[1]
+                    static_model_color = static_model[2]
+                    if static_model_name:
+                        self.static_modeling(static_model_name, static_model_pose, static_model_color)
+
+                # import wobj models
+                wobj_models = self.model_temp['wobj']
+                for wobj_model in wobj_models:
+                    wobj_model_name = wobj_model[0]
+                    wobj_model_pose = wobj_model[1]
+                    wobj_model_color = wobj_model[2]
+                    if wobj_model_name:
+                        self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
+            
+            self.import_model_dialog.hide()
+
+        elif button_value == 2:
+            root = tk.Tk()
+            root.withdraw()
+            filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
+                                                initialdir="./config/models")
+            if filepath:
+                print("[Info] 导入的 Robot Model 文件:", filepath)
+
+                with open(filepath, 'r', encoding='utf-8') as infile:
+                    robot = yaml.load(infile, Loader=yaml.FullLoader)
+                    self.model_temp['robot'] = robot['robot']
+                     
+                print("[Info] 已导入 Robot Model:", self.model_temp['robot'])
+            
+            # import models from yaml file
+            robot_model = self.model_temp['robot'][0]
+            if robot_model == 'ur5e':
+                from robot_sim.robots.ur5e import ur5e
+                from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+
+                robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
+                component = 'arm'
+
+                if self.robot_connect:
+                    print("[Info] 机器人已连接")
+                    self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                            pc_ip=self.pc_ip)
+                    self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+                else:
+                    print("[Info] 机器人未连接")
+                    self.init_conf = np.zeros(6)
+
+            elif robot_model == 'fr5':
+                from robot_sim.robots.fr5 import fr5
+                from fr_python_sdk.frmove import FRCobot as fr5_real
+
+                robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, zrot_to_gndbase=0)
+                component = 'arm'
+                if self.robot_connect:
+                    print("[Info] 机器人已连接")
+                    self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                    self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+                else:
+                    print("[Info] 机器人未连接")
+                    self.init_conf = np.zeros(6)
+
+            self.robot_modeling(robot_s, component)
+            self.import_model_dialog.hide()
+
+        elif button_value == 3: # import from model file
+            root = tk.Tk()
+            root.withdraw()
+            filepath = filedialog.askopenfilename(filetypes=[("STL files", "*.stl")],
+                                                  initialdir="./objects")
+            
+            if filepath:
+                print("[Info] 导入的 Model 文件:", filepath)
+                static_model_name_pattern = re.compile(r"/static/([\s\S]*?)\.stl")
+                static_model = static_model_name_pattern.findall(filepath)
+                wobj_model_name_pattern = re.compile(r"/wobj/([\s\S]*?)\.stl")
+                wobj_model = wobj_model_name_pattern.findall(filepath)
+            
+                if static_model:
+                    static_model_name = static_model[0]
+                    static_model_pose = np.zeros(6)
+                    static_model_color = [0.4, 0.4, 0.4, 1]
+
+                    if 'static' in self.model_temp:
+                        self.model_temp['static'].append([static_model_name, static_model_pose, static_model_color])
+                    else:
+                        self.model_temp['static'] = [[static_model_name, static_model_pose, static_model_color]]
+                    
+                    self.static_modeling(static_model_name, static_model_pose, static_model_color)
+                
+                if wobj_model:
+                    wobj_model_name = wobj_model[0]
+                    wobj_model_pose = np.zeros(6)
+                    wobj_model_color = [1, 0, 0, 1]
+
+                    if 'wobj' in self.model_temp:
+                        self.model_temp['wobj'].append([wobj_model_name, wobj_model_pose, wobj_model_color])
+                    else:
+                        self.model_temp['wobj'] = [[wobj_model_name, wobj_model_pose, wobj_model_color]]
+
+                    self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
+            
+            self.import_model_dialog.hide()
+
+        else:   # cancel
+            self.import_model_dialog.hide()
+            print("[Info] Import Model dialog closed")
 
     
     """
@@ -859,9 +1002,9 @@ class FastSimWorld(World):
         """
 
         print("[Info] Teaching enabled")
-        rbtonscreen = [None]
+        self.rbtonscreen = [None]
         taskMgr.doMethodLater(0.02, self.point_teaching, "point_teaching", 
-                        extraArgs=[rbtonscreen, self.robot_teach, self.component_name], 
+                        extraArgs=[self.rbtonscreen, self.robot_teach, self.component_name], 
                         appendTask=True)
         
     
@@ -884,7 +1027,7 @@ class FastSimWorld(World):
 
         if robot.is_jnt_values_in_ranges(self.component_name, cur_jnt_values):
             rbtonscreen[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[0, 0, 1, 0.5])
-            rbtonscreen[0].attach_to(base)
+            rbtonscreen[0].attach_to(self)
             for i in range(6):
                 self.slider_values[i][0].setValue(np.rad2deg(cur_jnt_values)[i])
                 if i in [0, 1, 2]:
@@ -897,6 +1040,10 @@ class FastSimWorld(World):
         else:
             print("[Warning] The given joint angles are out of joint limits.")
  
+        if 'robot' in self.model_temp:
+            if not self.model_temp['robot']:
+                return task.done
+    
         return task.again
     
 
@@ -1189,11 +1336,11 @@ class FastSimWorld(World):
             time_start = time.time()
             # if len(self.start_end_conf) == 2:
             [start_conf, goal_conf] = self.start_end_conf
-            rrtc_planner = rrtc.RRTConnect(base.robot_plan)
+            rrtc_planner = rrtc.RRTConnect(self.robot_plan)
             static_obstacle_list = [sublist[1] for sublist in self.static_models]
             wobj_obstacle_list = [sublist[1] for sublist in self.wobj_models]
             obstacle_list = static_obstacle_list + wobj_obstacle_list
-            self.path = rrtc_planner.plan(component_name=base.component_name,
+            self.path = rrtc_planner.plan(component_name=self.component_name,
                                         start_conf=start_conf,
                                         goal_conf=goal_conf,
                                         obstacle_list=obstacle_list,
@@ -1312,11 +1459,11 @@ class FastSimWorld(World):
             pose = path[motioncounter[0]]
             robot.fk(armname, pose)
             rbtmnp[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[1, 0.5, 0, 0.7])
-            rbtmnp[0].attach_to(base)
+            rbtmnp[0].attach_to(self)
             tcp_ball = gm.gen_sphere(pos=robot.get_gl_tcp(armname)[0], 
                                     radius=0.01, rgba=[1, 1, 0, 1])
             self.tcp_ball_meshmodel.append(tcp_ball)
-            tcp_ball.attach_to(base)
+            tcp_ball.attach_to(self)
             motioncounter[0] += 1
         else:
             motioncounter[0] = 0
@@ -1838,24 +1985,3 @@ class FastSimWorld(World):
                 self.task_temp = yaml.load(infile, Loader=yaml.FullLoader)
 
             print("[Info] 已导入任务", filepath)
-
-    
-if __name__ == "__main__":
-
-    from robot_sim.robots.ur5e import ur5e
-
-    # WRS planning simulation
-    robot_connect = False
-    robot_ip = '192.168.58.2'
-    pc_ip = '192.168.58.70'
-    init_conf = np.zeros(6)
-    base = FastSimWorld(robot_connect=robot_connect, init_conf=init_conf)
-    base.start()
-    
-    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False)
-    component = 'arm'
-    base.robot_modeling(robot_s, component)
-    
-    base.setFrameRateMeter(False)
-    base.run()
-    
