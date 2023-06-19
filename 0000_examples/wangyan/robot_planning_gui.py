@@ -1423,6 +1423,7 @@ class FastSimWorld(World):
             for point_name, checkbox_state in self.edit_point_checkbox_values:
                 if checkbox_state:
                     removed_point = self.teach_point_temp.pop(point_name)
+                    self.del_preview_point_button_clicked_moving(point_name)
                     print("[Info] 该示教点已被移除:", removed_point)
             self.edit_point_dialog.hide()
             print("[Info] Edit Point completed")
@@ -1947,6 +1948,7 @@ class FastSimWorld(World):
             for path_name, checkbox_state in self.edit_path_checkbox_values:
                 if checkbox_state:
                     removed_path = self.path_temp.pop(path_name)
+                    self.del_preview_path_button_clicked_moving(path_name)
                     print("[Info] 该Path已被移除:", removed_path)
             self.edit_path_dialog.hide()
             print("[Info] Edit Path completed")
@@ -2271,6 +2273,8 @@ class FastSimWorld(World):
             # remove targets
             for target_num, _, _, checkbox_state in self.task_targets:
                 if checkbox_state:
+                    [target_type, target_name] = self.task_temp[target_num]
+                    self.del_preview_task_button_clicked_moving(target_type, target_name)
                     removed_target = self.task_temp.pop(target_num)
                     print("[Info] 该任务目标已被移除:", removed_target)
                     
