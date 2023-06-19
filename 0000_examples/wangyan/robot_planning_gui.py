@@ -14,7 +14,7 @@ from panda3d.core import VirtualFileSystem as vfs
 
 class FastSimWorld(World):
     """
-        A Fast Robot Simulator for teaching, planning, and executing
+        A Fast Robot Simulator for teaching points, planning paths, and executing tasks
 
         Author: wangyan
         Date: 2023/06/14
@@ -48,8 +48,8 @@ class FastSimWorld(World):
         self.robot = None           # sim robot
         self.component_name = None
         self.robot_r = None         # real robot
-        self.robot_teach = None     # visual robot for teaching
-        self.robot_plan = None      # visual robot for animation
+        self.robot_teach = None     # robot object for teaching
+        self.robot_plan = None      # robot object for animation
 
         self.teach_point_temp = {}  # saving points temporarily
         self.path_temp = {}         # saving paths temporarily
@@ -61,10 +61,12 @@ class FastSimWorld(World):
         self.path = []              # planned path
         self.endplanningtask = 1    # flag to stop animation
 
-        self.start_meshmodel = None 
-        self.goal_meshmodel = None
-        self.robot_meshmodel = None
-        self.rbtonscreen = [None]
+        self.conf_meshmodel = {}    # visual robot meshmodel for previewing a point conf
+        # self.path_meshmodel = {}    # visual robot meshmodel for previewing a path
+        self.start_meshmodel = None # visual robot meshmodel for previewing start conf
+        self.goal_meshmodel = None  # visual robot meshmodel for previewing goal conf
+        self.robot_meshmodel = None # visual robot meshmodel for the real robot
+        self.rbtonscreen = [None]   # visual robot meshmodel for animation
         self.tcp_ball_meshmodel = []
         self.static_models = []
         self.wobj_models = []
@@ -106,28 +108,33 @@ class FastSimWorld(World):
             Creating frame widgets
         """
         
-        self.frame_main = DirectFrame(frameColor=(0.5, 0.5, 0.5, 0.1),
-                                 pos=(-1, 0, 0),
-                                 frameSize=(-1, 0,-1, 1))
+        self.frame_main = DirectFrame(
+                                frameColor=(0.5, 0.5, 0.5, 0.1),
+                                pos=(-1, 0, 0),
+                                frameSize=(-1, 0,-1, 1))
 
-        self.frame_cartesian = DirectFrame(frameColor=(0, 1, 0, 0.1),
-                                 pos=(0, 0, 0.),
-                                 frameSize=(-1, 0, 0, 1),
-                                 parent=self.frame_main)
+        self.frame_cartesian = DirectFrame(
+                                frameColor=(0, 1, 0, 0.1),
+                                pos=(0, 0, 0.),
+                                frameSize=(-1, 0, 0, 1),
+                                parent=self.frame_main)
         
-        self.frame_middle = DirectFrame(frameColor=(1, 0, 0, 0.1),
-                                 pos=(0, 0, -0.3),
-                                 frameSize=(-1, 0, 0, 0.3),
-                                 parent=self.frame_main)
+        self.frame_middle = DirectFrame(
+                                frameColor=(1, 0, 0, 0.1),
+                                pos=(0, 0, -0.3),
+                                frameSize=(-1, 0, 0, 0.3),
+                                parent=self.frame_main)
         
-        self.frame_joint = DirectFrame(frameColor=(1, 1, 0, 0.1),
-                                 pos=(0, 0, -0.3),
-                                 frameSize=(-1, 0,-1, 0),
-                                 parent=self.frame_main)
+        self.frame_joint = DirectFrame(
+                                frameColor=(1, 1, 0, 0.1),
+                                pos=(0, 0, -0.3),
+                                frameSize=(-1, 0,-1, 0),
+                                parent=self.frame_main)
         
-        self.frame_manager = DirectFrame(frameColor=(0, 0, 1, 0.1),
-                                 pos=(0.5, 0, 0.6),
-                                 frameSize=(0, 1.5, 0, 0.4))
+        self.frame_manager = DirectFrame(
+                                frameColor=(0, 0, 1, 0.1),
+                                pos=(0.5, 0, 0.6),
+                                frameSize=(0, 1.5, 0, 0.4))
         
 
     def create_button_gui(self):
@@ -151,21 +158,23 @@ class FastSimWorld(World):
                     pos=(-0.7, 0, 0.1),
                     parent=self.frame_middle)
         
-        self.plan_button = DirectButton(text="Plan",
-                                text_pos=(0, -0.4), 
-                                command=self.plan_moving,
-                                scale=(0.04, 0.04, 0.04),
-                                frameSize=(-3, 3, -1, 1),
-                                pos=(-0.2, 0, 0.2),
-                                parent=self.frame_middle)
+        self.plan_button = DirectButton(
+                    text="Plan",
+                    text_pos=(0, -0.4), 
+                    command=self.plan_moving,
+                    scale=(0.04, 0.04, 0.04),
+                    frameSize=(-3, 3, -1, 1),
+                    pos=(-0.2, 0, 0.2),
+                    parent=self.frame_middle)
         
-        self.execute_button = DirectButton(text="Execute",
-                                text_pos=(0, -0.4), 
-                                command=lambda: self.execute_moving(self.robot_connect),
-                                scale=(0.04, 0.04, 0.04),
-                                frameSize=(-3, 3, -1, 1),
-                                pos=(-0.2, 0, 0.1),
-                                parent=self.frame_middle)
+        self.execute_button = DirectButton(
+                    text="Execute",
+                    text_pos=(0, -0.4), 
+                    command=lambda: self.execute_moving(self.robot_connect),
+                    scale=(0.04, 0.04, 0.04),
+                    frameSize=(-3, 3, -1, 1),
+                    pos=(-0.2, 0, 0.1),
+                    parent=self.frame_middle)
 
     
     def create_option_menu_gui(self):
@@ -180,13 +189,14 @@ class FastSimWorld(World):
                     frameColor=(1, 1, 1, 0.1))
         
         options = ["Base", "Tool"]
-        self.option_menu = DirectOptionMenu(text_pos=(1, -0.4),
-                                            scale=(0.04, 0.04, 0.04),
-                                            frameSize=(0, 4, -1, 1),
-                                            pos=(-0.7, 0, 0.9),
-                                            items=options,
-                                            initialitem=0,
-                                            parent=self.frame_cartesian)
+        self.option_menu = DirectOptionMenu(
+                    text_pos=(1, -0.4),
+                    scale=(0.04, 0.04, 0.04),
+                    frameSize=(0, 4, -1, 1),
+                    pos=(-0.7, 0, 0.9),
+                    items=options,
+                    initialitem=0,
+                    parent=self.frame_cartesian)
     
 
     def create_joint_teaching_gui(self):
@@ -218,13 +228,14 @@ class FastSimWorld(World):
                         extraArgs=[i, -1],
                         parent=self.frame_joint)
             
-            slider = DirectSlider(range=(self.joint_limits[i][0], self.joint_limits[i][1]),
-                                  value=slider_values[i],
-                                  scale=(0.25, 0.5, 0.2),
-                                  pos=(-0.5, 0, -0.1 - i * 0.1),
-                                  command=self.update_joint_entry_value_gui,
-                                  extraArgs=[i],
-                                  parent=self.frame_joint)
+            slider = DirectSlider(
+                        range=(self.joint_limits[i][0], self.joint_limits[i][1]),
+                        value=slider_values[i],
+                        scale=(0.25, 0.5, 0.2),
+                        pos=(-0.5, 0, -0.1 - i * 0.1),
+                        command=self.update_joint_entry_value_gui,
+                        extraArgs=[i],
+                        parent=self.frame_joint)
             
             DirectButton(text="+",
                         text_pos=(0, -0.4), 
@@ -235,12 +246,13 @@ class FastSimWorld(World):
                         extraArgs=[i, 1],
                         parent=self.frame_joint)
             
-            entry = DirectEntry(text='',
-                                scale=0.035,
-                                width=3,
-                                pos=(-0.15, 0, -0.1 - i * 0.1),
-                                parent=self.frame_joint,
-                                frameColor=(1, 1, 1, 1))
+            entry = DirectEntry(
+                        text='',
+                        scale=0.035,
+                        width=3,
+                        pos=(-0.15, 0, -0.1 - i * 0.1),
+                        parent=self.frame_joint,
+                        frameColor=(1, 1, 1, 1))
 
             self.slider_values.append([slider, entry])  # 存储滑动条和文本框的实例
 
@@ -277,10 +289,10 @@ class FastSimWorld(World):
         for i in range(6):
 
             DirectLabel(text=tcp_dof[i],
-                    scale=0.035,
-                    pos=(-0.8, 0, 0.8 - i * 0.1),
-                    parent=self.frame_cartesian,
-                    frameColor=(1, 1, 1, 0.1))
+                        scale=0.035,
+                        pos=(-0.8, 0, 0.8 - i * 0.1),
+                        parent=self.frame_cartesian,
+                        frameColor=(1, 1, 1, 0.1))
 
             DirectButton(text="-",
                         text_pos=(1, -0.2),
@@ -302,36 +314,38 @@ class FastSimWorld(World):
             
             if i in [0, 1, 2]:
                 DirectLabel(text=tcp_dof[i],
-                            scale=0.035,
-                            pos=(-0.85 + 0.3 * i, 0, 0.12),
-                            parent=self.frame_cartesian,
-                            frameColor=(1, 1, 1, 0.1))
+                        scale=0.035,
+                        pos=(-0.85 + 0.3 * i, 0, 0.12),
+                        parent=self.frame_cartesian,
+                        frameColor=(1, 1, 1, 0.1))
                 
-                tcp_value_entry = DirectEntry(text='',
-                                        scale=0.035,
-                                        width=3.5,
-                                        pos=(-0.8 + 0.3 * i, 0, 0.12),
-                                        parent=self.frame_cartesian,
-                                        frameColor=(1, 1, 1, 1))
+                tcp_value_entry = DirectEntry(
+                        text='',
+                        scale=0.035,
+                        width=3.5,
+                        pos=(-0.8 + 0.3 * i, 0, 0.12),
+                        parent=self.frame_cartesian,
+                        frameColor=(1, 1, 1, 1))
             else:
                 DirectLabel(text=tcp_dof[i],
-                            scale=0.035,
-                            pos=(-0.85 + 0.3 * (i-3), 0, 0.05),
-                            parent=self.frame_cartesian,
-                            frameColor=(1, 1, 1, 0.1))
+                        scale=0.035,
+                        pos=(-0.85 + 0.3 * (i-3), 0, 0.05),
+                        parent=self.frame_cartesian,
+                        frameColor=(1, 1, 1, 0.1))
                 
-                tcp_value_entry = DirectEntry(text='',
-                                        scale=0.035,
-                                        width=3.5,
-                                        pos=(-0.8 + 0.3 * (i-3), 0, 0.05),
-                                        parent=self.frame_cartesian,
-                                        frameColor=(1, 1, 1, 1))
+                tcp_value_entry = DirectEntry(
+                        text='',
+                        scale=0.035,
+                        width=3.5,
+                        pos=(-0.8 + 0.3 * (i-3), 0, 0.05),
+                        parent=self.frame_cartesian,
+                        frameColor=(1, 1, 1, 1))
             
             DirectLabel(text="TCP Pose",
-                            scale=0.035,
-                            pos=(-0.85, 0, 0.19),
-                            parent=self.frame_cartesian,
-                            frameColor=(1, 1, 1, 0.1))
+                        scale=0.035,
+                        pos=(-0.85, 0, 0.19),
+                        parent=self.frame_cartesian,
+                        frameColor=(1, 1, 1, 0.1))
 
             self.tcp_values.append(tcp_value_entry)
 
@@ -394,11 +408,13 @@ class FastSimWorld(World):
                     parent=self.frame_manager,
                     frameColor=(1,1,1,0.5))
         
-        self.point_mgr_menu_frame = DirectFrame(pos=(0,0,0),
-                                                frameSize=(0.02, 0.27, 0.02, 0.3),
-                                                frameColor=(0.8, 0.8, 0.8, 1),
-                                                sortOrder=1,
-                                                parent=self.frame_manager)
+        self.point_mgr_menu_frame = DirectFrame(
+                    pos=(0,0,0),
+                    frameSize=(0.02, 0.27, 0.02, 0.3),
+                    frameColor=(0.8, 0.8, 0.8, 1),
+                    sortOrder=1,
+                    parent=self.frame_manager)
+        
         DirectButton(text="Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
@@ -435,11 +451,13 @@ class FastSimWorld(World):
                     parent=self.frame_manager,
                     frameColor=(1,1,1,0.5))
         
-        self.path_mgr_menu_frame = DirectFrame(pos=(0.32,0,0),
-                                                frameSize=(0.02, 0.27, 0.02, 0.3),
-                                                frameColor=(0.8, 0.8, 0.8, 1),
-                                                sortOrder=1,
-                                                parent=self.frame_manager)
+        self.path_mgr_menu_frame = DirectFrame(
+                    pos=(0.32,0,0),
+                    frameSize=(0.02, 0.27, 0.02, 0.3),
+                    frameColor=(0.8, 0.8, 0.8, 1),
+                    sortOrder=1,
+                    parent=self.frame_manager)
+        
         DirectButton(text="Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
@@ -476,11 +494,13 @@ class FastSimWorld(World):
                     parent=self.frame_manager,
                     frameColor=(1,1,1,0.5))
         
-        self.model_mgr_menu_frame = DirectFrame(pos=(0.64,0,0),
-                                                frameSize=(0.02, 0.27, 0.02, 0.3),
-                                                frameColor=(0.8, 0.8, 0.8, 1),
-                                                sortOrder=1,
-                                                parent=self.frame_manager)
+        self.model_mgr_menu_frame = DirectFrame(
+                    pos=(0.64, 0, 0),
+                    frameSize=(0.02, 0.27, 0.02, 0.3),
+                    frameColor=(0.8, 0.8, 0.8, 1),
+                    sortOrder=1,
+                    parent=self.frame_manager)
+        
         DirectButton(text="Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
@@ -518,10 +538,11 @@ class FastSimWorld(World):
                     frameColor=(1,1,1,0.5))
         
         self.task_mgr_menu_frame = DirectFrame(pos=(0.96,0,0),
-                                                frameSize=(0.02, 0.27, 0.02, 0.3),
-                                                frameColor=(0.8, 0.8, 0.8, 1),
-                                                sortOrder=1,
-                                                parent=self.frame_manager)
+                    frameSize=(0.02, 0.27, 0.02, 0.3),
+                    frameColor=(0.8, 0.8, 0.8, 1),
+                    sortOrder=1,
+                    parent=self.frame_manager)
+        
         DirectButton(text="Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
@@ -628,15 +649,16 @@ class FastSimWorld(World):
         self.edit_modeling_pose_color_values = []
         self.edit_modeling_checkbox_values = []
 
-        self.edit_model_dialog = DirectDialog(dialogName='Edit Models',
-                                            pos=(-0.5, 0, -0.2),
-                                            scale=(0.4, 0.4, 0.4),
-                                            buttonTextList=['Remove', 'Close'],
-                                            buttonValueList=[1, 0],
-                                            frameSize=(-1.5,1.5,-0.1-0.1*len(self.model_temp),1),
-                                            frameColor=(0.8,0.8,0.8,0.9),
-                                            command=self.edit_model_dialog_button_clicked_modeling,
-                                            parent=self.model_mgr_menu_frame)
+        self.edit_model_dialog = DirectDialog(
+                    dialogName='Edit Models',
+                    pos=(-0.5, 0, -0.2),
+                    scale=(0.4, 0.4, 0.4),
+                    buttonTextList=['Remove', 'Close'],
+                    buttonValueList=[1, 0],
+                    frameSize=(-1.5,1.5,-0.1-0.1*len(self.model_temp),1),
+                    frameColor=(0.8,0.8,0.8,0.9),
+                    command=self.edit_model_dialog_button_clicked_modeling,
+                    parent=self.model_mgr_menu_frame)
 
         self.edit_model_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.model_temp)))
         self.edit_model_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.model_temp)))
@@ -672,17 +694,18 @@ class FastSimWorld(World):
         for i, [model_type, model_name] in enumerate(model_infos):
             if model_name:
                 DirectLabel(text=model_name,
-                        pos=(-1.0, 0, 0.6-i*0.1), 
-                        scale=0.07, 
-                        parent=self.edit_model_dialog)
+                                pos=(-1.0, 0, 0.6-i*0.1), 
+                                scale=0.07, 
+                                parent=self.edit_model_dialog)
                 
-                edit_pose_color_button = DirectButton(text="Set",
-                                                    pos=(0.2, 0, 0.6-i*0.1),
-                                                    scale=(0.04, 0.04, 0.04),
-                                                    frameSize=(-4, 4, -1, 1),
-                                                    command=self.edit_model_pose_color_modeling,
-                                                    extraArgs=[i, model_type, model_name],
-                                                    parent=self.edit_model_dialog)
+                edit_pose_color_button = DirectButton(
+                                text="Set",
+                                pos=(0.2, 0, 0.6-i*0.1),
+                                scale=(0.04, 0.04, 0.04),
+                                frameSize=(-4, 4, -1, 1),
+                                command=self.edit_model_pose_color_modeling,
+                                extraArgs=[i, model_type, model_name],
+                                parent=self.edit_model_dialog)
 
                 DirectCheckButton(pos=(1.0, 0, 0.6-i*0.1),
                                 scale=0.07, 
@@ -704,13 +727,13 @@ class FastSimWorld(World):
         self.model_color_values = []
 
         self.pose_color_dialog = DirectDialog(pos=(-0.5, 0, -0.5-0.1*index),
-                                        buttonTextList=['OK', 'Close'],
-                                        buttonValueList=[1, 0],
-                                        frameSize=(-1.0, 1.0, -0.5, 1.0),
-                                        frameColor=(0.8,0.8,0.8,0.9),
-                                        command=self.pose_color_dialog_button_clicked_modeling,
-                                        extraArgs=[index, model_type, model_name],
-                                        parent=self.edit_model_dialog)
+                                    buttonTextList=['OK', 'Close'],
+                                    buttonValueList=[1, 0],
+                                    frameSize=(-1.0, 1.0, -0.5, 1.0),
+                                    frameColor=(0.8,0.8,0.8,0.9),
+                                    command=self.pose_color_dialog_button_clicked_modeling,
+                                    extraArgs=[index, model_type, model_name],
+                                    parent=self.edit_model_dialog)
         
         self.pose_color_dialog.buttonList[0].setPos((0.6, 0, -0.4))
         self.pose_color_dialog.buttonList[1].setPos((0.8, 0, -0.4))
@@ -719,7 +742,7 @@ class FastSimWorld(World):
                     pos=(-0.6, 0, 0.8),
                     scale=0.07,
                     parent=self.pose_color_dialog)
-        
+        # pose parameters
         pose_params = ['x','y','z','rx','ry','rz']
         for i in range(6):
             DirectLabel(text=pose_params[i],
@@ -735,7 +758,7 @@ class FastSimWorld(World):
                                     frameColor=(1, 1, 1, 1),
                                     parent=self.pose_color_dialog)
             self.model_pose_values.append(pose_entry)
-            
+        # color parameters
         color_params = ['R','G','B','Alpha']
         if model_type != 'robot':
             for i in range(4):
@@ -745,12 +768,12 @@ class FastSimWorld(World):
                             parent=self.pose_color_dialog)
                 model_init_color_values = self.model_init_color_values[f"{model_type}-{model_name}"]
                 color_entry = DirectEntry(scale=0.06,
-                                        width=10,
-                                        pos=(0.2, 0, 0.55-0.15*i),
-                                        initialText=str(model_init_color_values[i]),
-                                        focus=1,
-                                        frameColor=(1, 1, 1, 1),
-                                        parent=self.pose_color_dialog)
+                                    width=10,
+                                    pos=(0.2, 0, 0.55-0.15*i),
+                                    initialText=str(model_init_color_values[i]),
+                                    focus=1,
+                                    frameColor=(1, 1, 1, 1),
+                                    parent=self.pose_color_dialog)
                 self.model_color_values.append(color_entry)
     
 
@@ -951,7 +974,7 @@ class FastSimWorld(World):
                 yaml.dump(self.model_temp, outfile, default_flow_style=False)
 
             self.export_model_dialog.hide()
-            print("[Info] 已保存Point的yaml文件")
+            print("[Info] 已保存Model的yaml文件")
 
         else:   # cancel
             self.export_model_dialog.hide()
@@ -992,7 +1015,7 @@ class FastSimWorld(World):
                 with open(filepath, 'r', encoding='utf-8') as infile:
                     self.model_temp = yaml.load(infile, Loader=yaml.FullLoader)
 
-                print("[Info] 已导入Model:", self.model_temp.keys())
+                print("[Info] 已从yaml文件导入Model:", self.model_temp.keys())
             
             # import models from yaml file
             if self.model_temp:
@@ -1278,7 +1301,7 @@ class FastSimWorld(World):
         
         print("[Info] editing points")
 
-        self.edit_teaching_checkbox_values = []
+        self.edit_point_checkbox_values = []
 
         self.edit_point_dialog = DirectDialog(dialogName='Edit Points',
                                             pos=(-0.5, 0, -0.2),
@@ -1294,50 +1317,96 @@ class FastSimWorld(World):
         self.edit_point_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.teach_point_temp)))
 
         DirectLabel(text="Point Name", 
-                    pos=(-1.2, 0, 0.8),
+                    pos=(-1.3, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
         DirectLabel(text="Joint Values(deg)", 
-                    pos=(0, 0, 0.8),
+                    pos=(-0.2, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_point_dialog)
+        
+        DirectLabel(text="Preview", 
+                    pos=(0.9, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
         DirectLabel(text="Remove", 
-                    pos=(1.2, 0, 0.8),
+                    pos=(1.3, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
         for i, (point_name, joint_values) in enumerate(self.teach_point_temp.items()):
             DirectLabel(text=point_name, 
-                        pos=(-1.2, 0, 0.6-i*0.1), 
+                        pos=(-1.3, 0, 0.6-i*0.15), 
                         scale=0.07, 
                         parent=self.edit_point_dialog)
             
             DirectLabel(text=str(joint_values), 
-                        pos=(0, 0, 0.6-i*0.1), 
+                        pos=(-0.2, 0, 0.6-i*0.15), 
                         scale=0.07, 
                         parent=self.edit_point_dialog)
             
-            DirectCheckButton(pos=(1.2, 0, 0.6-i*0.1),
+            DirectButton(text="preview",
+                         text_pos=(0, -0.4),
+                         pos=(0.75, 0, 0.62-i*0.15),
+                         scale=0.07,
+                         frameSize=(-2, 2, -0.8, 0.8),
+                         command=self.preview_point_button_clicked_moving,
+                         extraArgs=[point_name],
+                         parent=self.edit_point_dialog)
+            
+            DirectButton(text="delete",
+                         text_pos=(0, -0.4),
+                         pos=(1.05, 0, 0.62-i*0.15),
+                         scale=0.07,
+                         frameSize=(-2, 2, -0.8, 0.8),
+                         command=self.del_preview_point_button_clicked_moving,
+                         extraArgs=[point_name],
+                         parent=self.edit_point_dialog)
+            
+            DirectCheckButton(pos=(1.3, 0, 0.6-i*0.15),
                             scale=0.07, 
-                            command=self.edit_teaching_checkbox_status_change,
+                            command=self.edit_point_checkbox_status_change,
                             extraArgs=[i],
                             frameColor=(1, 1, 1, 1),
                             parent=self.edit_point_dialog)
 
-            self.edit_teaching_checkbox_values.append([point_name, False])
+            self.edit_point_checkbox_values.append([point_name, False])
 
     
-    def edit_teaching_checkbox_status_change(self, isChecked, checkbox_index):
+    def preview_point_button_clicked_moving(self, point_name):
+        """
+            Behaviors when preview point button clicked
+        """
+
+        if point_name in self.conf_meshmodel:
+            self.conf_meshmodel[point_name].detach()
+        # Preview conf
+        conf = np.deg2rad(self.teach_point_temp[point_name])
+        self.robot_teach.fk(self.component_name, conf)
+        self.conf_meshmodel[point_name] = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[1,1,0,0.3])
+        self.conf_meshmodel[point_name].attach_to(self)
+
+
+    def del_preview_point_button_clicked_moving(self, point_name):
+        """
+            Erase point preview
+        """
+
+        if point_name in self.conf_meshmodel:
+            self.conf_meshmodel[point_name].detach()
+
+
+    def edit_point_checkbox_status_change(self, isChecked, checkbox_index):
         """
             Change checkbox status
         """
         
         if isChecked:
-            self.edit_teaching_checkbox_values[checkbox_index][1] = True
+            self.edit_point_checkbox_values[checkbox_index][1] = True
         else:
-            self.edit_teaching_checkbox_values[checkbox_index][1] = False
+            self.edit_point_checkbox_values[checkbox_index][1] = False
 
     
     def edit_point_dialog_button_clicked_teaching(self, button_value):
@@ -1346,7 +1415,7 @@ class FastSimWorld(World):
         """
 
         if button_value == 1:   # remove
-            for point_name, checkbox_state in self.edit_teaching_checkbox_values:
+            for point_name, checkbox_state in self.edit_point_checkbox_values:
                 if checkbox_state:
                     removed_point = self.teach_point_temp.pop(point_name)
                     print("[Info] 该示教点已被移除:", removed_point)
@@ -1356,6 +1425,9 @@ class FastSimWorld(World):
             self.edit_teaching()
 
         else:   # close
+            for point_name, checkbox_state in self.edit_point_checkbox_values:
+                self.del_preview_point_button_clicked_moving(point_name)
+
             self.edit_point_dialog.hide()
             print("[Info] Edit Point dialog closed")
 
@@ -1422,13 +1494,13 @@ class FastSimWorld(World):
         filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                               initialdir="./config/points")
         if filepath:
-            print("[Info] 导入的示教点文件:", filepath)
+            print("[Info] 导入的Point文件:", filepath)
 
             self.teach_point_temp = {}
             with open(filepath, 'r', encoding='utf-8') as infile:
                 self.teach_point_temp = yaml.load(infile, Loader=yaml.FullLoader)
 
-            print("[Info] 已导入示教点:", self.teach_point_temp.keys())
+            print("[Info] 已导入Point:", self.teach_point_temp.keys())
 
 
     """
@@ -1514,7 +1586,6 @@ class FastSimWorld(World):
             self.endplanningtask = 0    # flag to start animation
 
             time_start = time.time()
-            # if len(self.start_end_conf) == 2:
             [start_conf, goal_conf] = self.start_end_conf
             rrtc_planner = rrtc.RRTConnect(self.robot_plan)
             static_obstacle_list = [sublist[1] for sublist in self.static_models]
@@ -1750,7 +1821,7 @@ class FastSimWorld(World):
                                             buttonValueList=[1, 0],
                                             frameSize=(-1.5,1.5,-0.1-0.1*len(self.path_temp),1),
                                             frameColor=(0.8,0.8,0.8,0.9),
-                                            command=self.edit_path_dialog_button_clicked_teaching,
+                                            command=self.edit_path_dialog_button_clicked_moving,
                                             parent=self.path_mgr_menu_frame)
         
         self.edit_path_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.path_temp)))
@@ -1761,6 +1832,11 @@ class FastSimWorld(World):
                     scale=0.07,
                     parent=self.edit_path_dialog)
         
+        DirectLabel(text="Preview", 
+                    pos=(0, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_path_dialog)
+        
         DirectLabel(text="Remove", 
                     pos=(1.0, 0, 0.8),
                     scale=0.07,
@@ -1768,11 +1844,28 @@ class FastSimWorld(World):
         
         for i, (path_name, _) in enumerate(self.path_temp.items()):
             DirectLabel(text=path_name, 
-                        pos=(-1.2, 0, 0.6-i*0.1), 
+                        pos=(-1.0, 0, 0.6-i*0.15), 
                         scale=0.07, 
                         parent=self.edit_path_dialog)
+
+            DirectButton(text="preview",
+                         text_pos=(0, -0.4),
+                         pos=(-0.25, 0, 0.62-i*0.15),
+                         scale=0.07,
+                         frameSize=(-3, 3, -1, 1),
+                         command=self.preview_path_button_clicked_moving,
+                         extraArgs=[path_name],
+                         parent=self.edit_path_dialog)
             
-            DirectCheckButton(pos=(1.2, 0, 0.6-i*0.1),
+            DirectButton(text="delete",
+                         text_pos=(0, -0.4),
+                         pos=(0.25, 0, 0.62-i*0.15),
+                         scale=0.07,
+                         frameSize=(-3, 3, -1, 1),
+                         command=self.del_preview_path_button_clicked_moving,
+                         parent=self.edit_path_dialog)
+            
+            DirectCheckButton(pos=(1.0, 0, 0.6-i*0.15),
                             scale=0.07, 
                             command=self.edit_path_checkbox_status_change,
                             extraArgs=[i],
@@ -1780,6 +1873,37 @@ class FastSimWorld(World):
                             parent=self.edit_path_dialog)
 
             self.edit_path_checkbox_values.append([path_name, False])
+
+    
+    def preview_path_button_clicked_moving(self, path_name):
+        """
+            Behaviors when preview path button clicked
+        """
+
+        
+        self.endplanningtask = 0    # flag to start animation
+
+        self.path = np.deg2rad(self.path_temp[path_name])
+        print(f"Path length = {len(self.path)}\nPath = {self.path}")
+        print("[Info] Path preview animation started")
+        # Path preview animation
+        rbtmnp = [None]
+        motioncounter = [0]
+        taskMgr.doMethodLater(0.1, self.animation_moving, "animation_moving",
+                            extraArgs=[rbtmnp, motioncounter, self.robot_plan, 
+                                    self.path, self.component_name], 
+                            appendTask=True)
+
+
+    def del_preview_path_button_clicked_moving(self):
+        """
+            Stop preview path button
+        """    
+
+        self.endplanningtask = 1    # flag to stop animation
+
+        for tcp_ball in self.tcp_ball_meshmodel:
+            tcp_ball.detach()
 
     
     def edit_path_checkbox_status_change(self, isChecked, checkbox_index):
@@ -1793,7 +1917,7 @@ class FastSimWorld(World):
             self.edit_path_checkbox_values[checkbox_index][1] = False
 
 
-    def edit_path_dialog_button_clicked_teaching(self, button_value):
+    def edit_path_dialog_button_clicked_moving(self, button_value):
         """
             Behaviors when 'Edit Path' dialog buttons clicked
         """
@@ -1809,6 +1933,9 @@ class FastSimWorld(World):
             self.edit_moving()
 
         else:   # close
+            for path_name, checkbox_state in self.edit_path_checkbox_values:
+                self.del_preview_path_button_clicked_moving()
+
             self.edit_path_dialog.hide()
             print("[Info] Edit Path dialog closed")
 
@@ -1892,10 +2019,12 @@ class FastSimWorld(World):
             Editing tasks
         """
 
+        print("[Info] editing tasks")
+
         self.edit_task_dialog = DirectDialog(dialogName='Edit Tasks',
                                         pos=(-0.5, 0, -0.2),
                                         scale=(0.4, 0.4, 0.4),
-                                        buttonTextList=['Add', 'Remove', 'Close'],
+                                        buttonTextList=['Add', 'Apply', 'Close'],
                                         buttonValueList=[1, 2, 0],
                                         frameSize=(-1.5, 1.5, -0.1-0.2*len(self.task_temp), 1),
                                         frameColor=(0.8, 0.8, 0.8, 0.9),
@@ -1910,12 +2039,17 @@ class FastSimWorld(World):
             self.edit_task_dialog.buttonList[0]['state'] = DGG.DISABLED
 
         DirectLabel(text="Target Type", 
-                    pos=(-0.7, 0, 0.8),
+                    pos=(-1.1, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_task_dialog)
         
         DirectLabel(text="Target Name", 
-                    pos=(0, 0, 0.8),
+                    pos=(-0.4, 0, 0.8),
+                    scale=0.07,
+                    parent=self.edit_task_dialog)
+        
+        DirectLabel(text="Preview", 
+                    pos=(0.5, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_task_dialog)
         
@@ -1927,7 +2061,7 @@ class FastSimWorld(World):
         self.task_targets = []
         for i, (target_num, [target_type, target_name]) in enumerate(self.task_temp.items()):
             DirectLabel(text=str(i+1),
-                        pos=(-1.2, 0, 0.6-0.2*i),
+                        pos=(-1.4, 0, 0.6-0.2*i),
                         scale=0.07,
                         parent=self.edit_task_dialog)
             
@@ -1936,7 +2070,7 @@ class FastSimWorld(World):
                                                 scale=(0.07, 0.07, 0.07),
                                                 frameSize=(0, 4, -1, 1),
                                                 frameColor=(1, 1, 1, 1),
-                                                pos=(-0.8, 0, 0.6-0.2*i),
+                                                pos=(-1.2, 0, 0.6-0.2*i),
                                                 items=["point", "path"],
                                                 initialitem=initial_item,
                                                 command=self.update_target_name_task,
@@ -1954,13 +2088,31 @@ class FastSimWorld(World):
                                                 scale=(0.07, 0.07, 0.07),
                                                 frameSize=(0, 10, -1, 1),
                                                 frameColor=(1, 1, 1, 1),
-                                                pos=(-0.2, 0, 0.6-0.2*i),
+                                                pos=(-0.7, 0, 0.6-0.2*i),
                                                 items=name_options,
                                                 initialitem=name_option_initialitem,
                                                 command=self.update_task_temp_task,
                                                 extraArgs=[i],
                                                 parent=self.edit_task_dialog)
 
+            DirectButton(text="preview",
+                         text_pos=(0, -0.4),
+                         pos=(0.3, 0, 0.6-i*0.2),
+                         scale=0.07,
+                         frameSize=(-2, 2, -0.8, 0.8),
+                         command=self.preview_task_button_clicked_moving,
+                         extraArgs=[target_type, target_name],
+                         parent=self.edit_task_dialog)
+            
+            DirectButton(text="delete",
+                         text_pos=(0, -0.4),
+                         pos=(0.7, 0, 0.6-i*0.2),
+                         scale=0.07,
+                         frameSize=(-2, 2, -0.8, 0.8),
+                         command=self.del_preview_task_button_clicked_moving,
+                         extraArgs=[target_type, target_name],
+                         parent=self.edit_task_dialog)
+            
             DirectCheckButton(pos=(1.2, 0, 0.6-0.2*i),
                             scale=0.07, 
                             command=self.edit_task_checkbox_status_change,
@@ -1970,6 +2122,32 @@ class FastSimWorld(World):
             
             self.task_targets.append([target_num, type_option_menu, name_option_menu, False])
         
+
+    def preview_task_button_clicked_moving(self, target_type, target_name):
+        """
+            Behaviors when preview task button clicked
+        """
+    
+        if target_type == 'point':
+            print("[Info] Preview point")
+            self.preview_point_button_clicked_moving(target_name)
+        else:
+            print("[Info] Preview path")
+            self.preview_path_button_clicked_moving(target_name)
+
+    
+    def del_preview_task_button_clicked_moving(self, target_type, target_name):
+        """
+            Erase preview points / paths
+        """
+
+        if target_type == 'point':
+            print("[Info] Delete preview point")
+            self.del_preview_point_button_clicked_moving(target_name)
+        else:
+            print("[Info] Delete preview path")
+            self.del_preview_path_button_clicked_moving()
+
 
     def edit_task_checkbox_status_change(self, isChecked, checkbox_index):
         """
@@ -1997,7 +2175,7 @@ class FastSimWorld(World):
                                                 scale=(0.07, 0.07, 0.07),
                                                 frameSize=(0, 10, -1, 1),
                                                 frameColor=(1, 1, 1, 1),
-                                                pos=(-0.2, 0, 0.6-0.2*index),
+                                                pos=(-0.7, 0, 0.6-0.2*index),
                                                 items=new_items,
                                                 initialitem=0,
                                                 command=self.update_task_temp_task,
@@ -2025,7 +2203,7 @@ class FastSimWorld(World):
         if button_value == 1:   # add
             line_num = len(self.task_temp)
             DirectLabel(text=str(line_num+1),
-                        pos=(-1.2, 0, 0.6-line_num*0.2),
+                        pos=(-1.4, 0, 0.6-line_num*0.2),
                         scale=0.07,
                         parent=self.edit_task_dialog)
             
@@ -2033,7 +2211,7 @@ class FastSimWorld(World):
                                                 scale=(0.07, 0.07, 0.07),
                                                 frameSize=(0, 4, -1, 1),
                                                 frameColor=(1, 1, 1, 1),
-                                                pos=(-0.8, 0, 0.6-line_num*0.2),
+                                                pos=(-1.2, 0, 0.6-line_num*0.2),
                                                 items=["point", "path"],
                                                 initialitem=0,
                                                 command=self.update_target_name_task,
@@ -2045,7 +2223,7 @@ class FastSimWorld(World):
                                                 scale=(0.07, 0.07, 0.07),
                                                 frameSize=(0, 10, -1, 1),
                                                 frameColor=(1, 1, 1, 1),
-                                                pos=(-0.2, 0, 0.6-line_num*0.2),
+                                                pos=(-0.7, 0, 0.6-line_num*0.2),
                                                 items=name_options,
                                                 initialitem=0,
                                                 command=self.update_task_temp_task,
@@ -2068,7 +2246,8 @@ class FastSimWorld(World):
             self.edit_task_dialog.hide()
             self.edit_task()
 
-        elif button_value == 2: # remove selected targets
+        elif button_value == 2: # apply changes to targets
+            # remove targets
             for target_num, _, _, checkbox_state in self.task_targets:
                 if checkbox_state:
                     removed_target = self.task_temp.pop(target_num)
@@ -2086,8 +2265,11 @@ class FastSimWorld(World):
             self.edit_task()
 
         else:   # close
+            # refresh the task dict
             for target_num, type_option_menu, name_option_menu, checkbox_state in self.task_targets:
                 self.task_temp[target_num] = [type_option_menu.get(), name_option_menu.get()]
+
+                self.del_preview_task_button_clicked_moving(type_option_menu.get(), name_option_menu.get())
 
             print("task_temp = ", self.task_temp)
             self.edit_task_dialog.hide()
@@ -2156,10 +2338,10 @@ class FastSimWorld(World):
         filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                               initialdir="./config/tasks")
         if filepath:
-            print("[Info] 导入的任务文件:", filepath)
+            print("[Info] 导入的Task文件:", filepath)
 
             self.task_temp = {}
             with open(filepath, 'r', encoding='utf-8') as infile:
                 self.task_temp = yaml.load(infile, Loader=yaml.FullLoader)
 
-            print("[Info] 已导入任务", filepath)
+            print("[Info] 已导入Task", filepath)
