@@ -94,9 +94,9 @@ class FastSimWorld(World):
         self.create_option_menu_gui()
         self.create_joint_teaching_gui()
         self.create_cartesian_teaching_gui()
-        self.create_point_mgr_menu_gui()
-        self.create_path_mgr_menu_gui()
         self.create_model_mgr_menu_gui()
+        self.create_path_mgr_menu_gui()
+        self.create_point_mgr_menu_gui()
         self.create_task_mgr_menu_gui()
 
 
@@ -396,20 +396,20 @@ class FastSimWorld(World):
         else:
             print("[Warning] IK is unsolved!")
 
-    
-    def create_point_mgr_menu_gui(self):
+
+    def create_model_mgr_menu_gui(self):
         """
-            Create the Point Manager menu
+            Create the Model Manager menu
         """
 
-        DirectLabel(text="Point Manager",
+        DirectLabel(text="Model Manager",
                     scale=0.04,
                     pos=(0.15, 0, 0.32),
                     parent=self.frame_manager,
                     frameColor=(1,1,1,0.5))
         
-        self.point_mgr_menu_frame = DirectFrame(
-                    pos=(0,0,0),
+        self.model_mgr_menu_frame = DirectFrame(
+                    pos=(0, 0, 0),
                     frameSize=(0.02, 0.27, 0.02, 0.3),
                     frameColor=(0.8, 0.8, 0.8, 1),
                     sortOrder=1,
@@ -420,26 +420,26 @@ class FastSimWorld(World):
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
                     frameSize=(0, 5, -1, 1),
-                    command=self.edit_teaching,
-                    parent=self.point_mgr_menu_frame)
+                    command=self.edit_modeling,
+                    parent=self.model_mgr_menu_frame)
         
         DirectButton(text="Export",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.16),
                     frameSize=(0, 5, -1, 1),
-                    command=self.save_teaching,
-                    parent=self.point_mgr_menu_frame)
+                    command=self.save_modeling,
+                    parent=self.model_mgr_menu_frame)
         
         DirectButton(text="Import",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.07),
                     frameSize=(0, 5, -1, 1),
-                    command=self.load_teaching,
-                    parent=self.point_mgr_menu_frame)
-
-
+                    command=self.load_modeling,
+                    parent=self.model_mgr_menu_frame)
+        
+    
     def create_path_mgr_menu_gui(self):
         """
             Create the Path Manager menu
@@ -481,21 +481,21 @@ class FastSimWorld(World):
                     frameSize=(0, 5, -1, 1),
                     command=self.load_moving,
                     parent=self.path_mgr_menu_frame)
-
-
-    def create_model_mgr_menu_gui(self):
+        
+    
+    def create_point_mgr_menu_gui(self):
         """
-            Create the Model Manager menu
+            Create the Point Manager menu
         """
 
-        DirectLabel(text="Model Manager",
+        DirectLabel(text="Point Manager",
                     scale=0.04,
                     pos=(0.79, 0, 0.32),
                     parent=self.frame_manager,
                     frameColor=(1,1,1,0.5))
         
-        self.model_mgr_menu_frame = DirectFrame(
-                    pos=(0.64, 0, 0),
+        self.point_mgr_menu_frame = DirectFrame(
+                    pos=(0.64,0,0),
                     frameSize=(0.02, 0.27, 0.02, 0.3),
                     frameColor=(0.8, 0.8, 0.8, 1),
                     sortOrder=1,
@@ -506,26 +506,26 @@ class FastSimWorld(World):
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
                     frameSize=(0, 5, -1, 1),
-                    command=self.edit_modeling,
-                    parent=self.model_mgr_menu_frame)
+                    command=self.edit_teaching,
+                    parent=self.point_mgr_menu_frame)
         
         DirectButton(text="Export",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.16),
                     frameSize=(0, 5, -1, 1),
-                    command=self.save_modeling,
-                    parent=self.model_mgr_menu_frame)
+                    command=self.save_teaching,
+                    parent=self.point_mgr_menu_frame)
         
         DirectButton(text="Import",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.07),
                     frameSize=(0, 5, -1, 1),
-                    command=self.load_modeling,
-                    parent=self.model_mgr_menu_frame)
+                    command=self.load_teaching,
+                    parent=self.point_mgr_menu_frame)
         
-    
+
     def create_task_mgr_menu_gui(self):
         """
             Create the Task Manager menu
@@ -694,20 +694,21 @@ class FastSimWorld(World):
         for i, [model_type, model_name] in enumerate(model_infos):
             if model_name:
                 DirectLabel(text=model_name,
-                                pos=(-1.0, 0, 0.6-i*0.1), 
+                                pos=(-1.0, 0, 0.6-i*0.15), 
                                 scale=0.07, 
                                 parent=self.edit_model_dialog)
                 
                 edit_pose_color_button = DirectButton(
                                 text="Set",
-                                pos=(0.2, 0, 0.6-i*0.1),
-                                scale=(0.04, 0.04, 0.04),
-                                frameSize=(-4, 4, -1, 1),
+                                text_pos=(0, -0.4),
+                                pos=(0.2, 0, 0.62-i*0.15),
+                                scale=0.07,
+                                frameSize=(-2, 2, -0.8, 0.8),
                                 command=self.edit_model_pose_color_modeling,
                                 extraArgs=[i, model_type, model_name],
                                 parent=self.edit_model_dialog)
 
-                DirectCheckButton(pos=(1.0, 0, 0.6-i*0.1),
+                DirectCheckButton(pos=(1.0, 0, 0.6-i*0.15),
                                 scale=0.07, 
                                 command=self.edit_modeling_checkbox_status_change,
                                 extraArgs=[i],
@@ -726,13 +727,13 @@ class FastSimWorld(World):
         self.model_pose_values = []
         self.model_color_values = []
 
-        self.pose_color_dialog = DirectDialog(pos=(-0.5, 0, -0.5-0.1*index),
+        self.pose_color_dialog = DirectDialog(pos=(-0.5, 0, -0.5-0.15*index),
                                     buttonTextList=['OK', 'Close'],
                                     buttonValueList=[1, 0],
                                     frameSize=(-1.0, 1.0, -0.5, 1.0),
                                     frameColor=(0.8,0.8,0.8,0.9),
                                     command=self.pose_color_dialog_button_clicked_modeling,
-                                    extraArgs=[index, model_type, model_name],
+                                    extraArgs=[model_type, model_name],
                                     parent=self.edit_model_dialog)
         
         self.pose_color_dialog.buttonList[0].setPos((0.6, 0, -0.4))
@@ -744,6 +745,7 @@ class FastSimWorld(World):
                     parent=self.pose_color_dialog)
         # pose parameters
         pose_params = ['x','y','z','rx','ry','rz']
+        pose_units = ['m', 'm', 'm', 'rad', 'rad', 'rad']
         for i in range(6):
             DirectLabel(text=pose_params[i],
                         pos=(-0.9, 0, 0.55-0.15*i),
@@ -751,12 +753,16 @@ class FastSimWorld(World):
                         parent=self.pose_color_dialog)
             model_init_pose_values = self.model_init_pose_values[f"{model_type}-{model_name}"]
             pose_entry = DirectEntry(scale=0.06,
-                                    width=10,
+                                    width=6,
                                     pos=(-0.8, 0, 0.55-0.15*i),
                                     initialText=str(model_init_pose_values[i]),
                                     focus=1,
                                     frameColor=(1, 1, 1, 1),
                                     parent=self.pose_color_dialog)
+            DirectLabel(text=pose_units[i],
+                        pos=(-0.3, 0, 0.55-0.15*i),
+                        scale=0.06,
+                        parent=self.pose_color_dialog)
             self.model_pose_values.append(pose_entry)
         # color parameters
         color_params = ['R','G','B','Alpha']
@@ -768,7 +774,7 @@ class FastSimWorld(World):
                             parent=self.pose_color_dialog)
                 model_init_color_values = self.model_init_color_values[f"{model_type}-{model_name}"]
                 color_entry = DirectEntry(scale=0.06,
-                                    width=10,
+                                    width=6,
                                     pos=(0.2, 0, 0.55-0.15*i),
                                     initialText=str(model_init_color_values[i]),
                                     focus=1,
@@ -777,7 +783,7 @@ class FastSimWorld(World):
                 self.model_color_values.append(color_entry)
     
 
-    def pose_color_dialog_button_clicked_modeling(self, button_value, index, model_type, model_name):
+    def pose_color_dialog_button_clicked_modeling(self, button_value, model_type, model_name):
         """
             Behaviors of pose/color dialog buttons
         """
