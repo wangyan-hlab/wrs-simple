@@ -1,0 +1,5 @@
+robot:
+- ur5e
+- [0,0,0,0,0,0]
+static: []
+wobj: []
