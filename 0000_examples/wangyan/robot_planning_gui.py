@@ -59,15 +59,15 @@ class FastSimWorld(World):
 
         self.start_end_conf = []    # saving planning start and goal points
         self.path = []              # planned path
-        self.endplanningtask = 1    # flag to stop animation
+        self.endplanningtask = {}    # flag to stop animation
 
-        self.conf_meshmodel = {}    # visual robot meshmodel for previewing a point conf
-        # self.path_meshmodel = {}    # visual robot meshmodel for previewing a path
+        self.conf_meshmodel = {}    # visual robot meshmodel for previewing point confs
+        self.path_meshmodel = {}    # visual robot meshmodel for previewing paths
         self.start_meshmodel = None # visual robot meshmodel for previewing start conf
         self.goal_meshmodel = None  # visual robot meshmodel for previewing goal conf
         self.robot_meshmodel = None # visual robot meshmodel for the real robot
         self.rbtonscreen = [None]   # visual robot meshmodel for animation
-        self.tcp_ball_meshmodel = []
+        self.tcp_ball_meshmodel = {}    # visual tcp ball meshmodel for previewing paths
         self.static_models = []
         self.wobj_models = []
         
@@ -804,7 +804,6 @@ class FastSimWorld(World):
                 self.static_models.pop(model_index)
 
                 modelnames = [sublist[0] for sublist in self.model_temp['static']]
-                # model_color = self.model_temp['static'][modelnames.index(model_name)][2]
                 self.model_temp['static'][modelnames.index(model_name)][1] = pose_value
                 self.model_temp['static'][modelnames.index(model_name)][2] = color_value
                 self.static_modeling(model_name, pose_value, color_value)
@@ -1583,7 +1582,7 @@ class FastSimWorld(World):
             self.plan_show_startgoal_moving()
 
         elif button_value == 2: # plan
-            self.endplanningtask = 0    # flag to start animation
+            self.endplanningtask['plan_preview'] = 0    # flag to start animation
 
             time_start = time.time()
             [start_conf, goal_conf] = self.start_end_conf
@@ -1605,20 +1604,25 @@ class FastSimWorld(World):
             # Motion planning animation
             rbtmnp = [None]
             motioncounter = [0]
+            path_name = 'plan_preview'
             taskMgr.doMethodLater(0.1, self.animation_moving, "animation_moving",
                                 extraArgs=[rbtmnp, motioncounter, self.robot_plan, 
-                                        self.path, self.component_name], 
+                                        self.path, path_name, self.component_name], 
                                 appendTask=True)
                 
         elif button_value in [3, 4, 0]:
-            self.endplanningtask = 1
+            self.endplanningtask['plan_preview'] = 1
 
             if self.start_meshmodel is not None:
                 self.start_meshmodel.detach()
             if self.goal_meshmodel is not None:
                 self.goal_meshmodel.detach()
-            for tcp_ball in self.tcp_ball_meshmodel:
-                tcp_ball.detach()
+
+            for i in range(len(self.path)):
+                tcp_ball_name = f"plan_preview-{i}"
+                if tcp_ball_name in self.tcp_ball_meshmodel:
+                    self.tcp_ball_meshmodel[tcp_ball_name].detach()
+                    self.tcp_ball_meshmodel.pop(f"plan_preview-{i}")
 
             if button_value == 3:   # stop
                 print("[Info] Plan animation stopped")
@@ -1698,7 +1702,7 @@ class FastSimWorld(World):
         self.goal_meshmodel.attach_to(self)
 
 
-    def animation_moving(self, rbtmnp, motioncounter, robot, path, armname, task):
+    def animation_moving(self, rbtmnp, motioncounter, robot, path, path_name, armname, task):
         """
             Animation of the path
         """
@@ -1707,21 +1711,31 @@ class FastSimWorld(World):
             # update simulated robot
             if rbtmnp[0] is not None:
                 rbtmnp[0].detach()
+            tcp_ball_name = f"{path_name}-{motioncounter[0]}"
+            if tcp_ball_name in self.tcp_ball_meshmodel:
+                self.tcp_ball_meshmodel[f"{path_name}-{motioncounter[0]}"].detach()
+
             pose = path[motioncounter[0]]
             robot.fk(armname, pose)
             rbtmnp[0] = robot.gen_meshmodel(toggle_tcpcs=True, rgba=[1, 0.5, 0, 0.7])
             rbtmnp[0].attach_to(self)
             tcp_ball = gm.gen_sphere(pos=robot.get_gl_tcp(armname)[0], 
                                     radius=0.01, rgba=[1, 1, 0, 1])
-            self.tcp_ball_meshmodel.append(tcp_ball)
-            tcp_ball.attach_to(self)
+            self.tcp_ball_meshmodel[f"{path_name}-{motioncounter[0]}"] = tcp_ball
+            self.tcp_ball_meshmodel[f"{path_name}-{motioncounter[0]}"].attach_to(self)
             motioncounter[0] += 1
         else:
             motioncounter[0] = 0
 
-        if self.endplanningtask == 1:
+        if self.endplanningtask[path_name] == 1:
             rbtmnp[0].detach()
-            tcp_ball.detach()
+            
+            for i in range(len(path)):
+                tcp_ball_name = f"{path_name}-{i}"
+                if tcp_ball_name in self.tcp_ball_meshmodel:
+                    self.tcp_ball_meshmodel[tcp_ball_name].detach()
+                    self.tcp_ball_meshmodel.pop(f"{path_name}-{i}")
+
             print("[Info] Animation 结束")
             return task.done
         else:
@@ -1752,12 +1766,14 @@ class FastSimWorld(World):
                 if self.goal_meshmodel is not None:
                     self.goal_meshmodel.detach()
                 
-                for tcp_ball in self.tcp_ball_meshmodel:
-                    tcp_ball.detach()
+                for tcp_ball_name in self.tcp_ball_meshmodel:
+                    self.tcp_ball_meshmodel[tcp_ball_name].detach()
+                    self.tcp_ball_meshmodel.pop(tcp_ball_name)
 
                 if real_robot:
                     print("[Info] Robot connected")
-                    self.endplanningtask = 1
+                    for path_name in self.endplanningtask:
+                        self.endplanningtask[path_name] = 1
                     if execute_targets[-1][0] == 'path':
                         last_target = execute_targets[-1][1][-1]
                     else:
@@ -1775,7 +1791,8 @@ class FastSimWorld(World):
                     
                 else:
                     print("[Info] Robot NOT connected")
-                    self.endplanningtask = 1
+                    for path_name in self.endplanningtask:
+                        self.endplanningtask[path_name] = 1
                     if execute_targets[-1][0] == 'path':
                         last_target = execute_targets[-1][1][-1]
                     else:
@@ -1863,6 +1880,7 @@ class FastSimWorld(World):
                          scale=0.07,
                          frameSize=(-3, 3, -1, 1),
                          command=self.del_preview_path_button_clicked_moving,
+                         extraArgs=[path_name],
                          parent=self.edit_path_dialog)
             
             DirectCheckButton(pos=(1.0, 0, 0.6-i*0.15),
@@ -1881,29 +1899,26 @@ class FastSimWorld(World):
         """
 
         
-        self.endplanningtask = 0    # flag to start animation
+        self.endplanningtask[path_name] = 0    # flag to start animation
 
         self.path = np.deg2rad(self.path_temp[path_name])
-        print(f"Path length = {len(self.path)}\nPath = {self.path}")
+        print(f"Path name:{path_name}\nPath length = {len(self.path)}\nPath = {self.path}")
         print("[Info] Path preview animation started")
         # Path preview animation
-        rbtmnp = [None]
+        self.path_meshmodel[path_name] = [None]
         motioncounter = [0]
         taskMgr.doMethodLater(0.1, self.animation_moving, "animation_moving",
-                            extraArgs=[rbtmnp, motioncounter, self.robot_plan, 
-                                    self.path, self.component_name], 
+                            extraArgs=[self.path_meshmodel[path_name], motioncounter, 
+                                       self.robot_plan, self.path, path_name, self.component_name], 
                             appendTask=True)
 
 
-    def del_preview_path_button_clicked_moving(self):
+    def del_preview_path_button_clicked_moving(self, path_name):
         """
             Stop preview path button
         """    
 
-        self.endplanningtask = 1    # flag to stop animation
-
-        for tcp_ball in self.tcp_ball_meshmodel:
-            tcp_ball.detach()
+        self.endplanningtask[path_name] = 1    # flag to stop animation
 
     
     def edit_path_checkbox_status_change(self, isChecked, checkbox_index):
@@ -1934,7 +1949,7 @@ class FastSimWorld(World):
 
         else:   # close
             for path_name, checkbox_state in self.edit_path_checkbox_values:
-                self.del_preview_path_button_clicked_moving()
+                self.del_preview_path_button_clicked_moving(path_name)
 
             self.edit_path_dialog.hide()
             print("[Info] Edit Path dialog closed")
@@ -2146,7 +2161,7 @@ class FastSimWorld(World):
             self.del_preview_point_button_clicked_moving(target_name)
         else:
             print("[Info] Delete preview path")
-            self.del_preview_path_button_clicked_moving()
+            self.del_preview_path_button_clicked_moving(target_name)
 
 
     def edit_task_checkbox_status_change(self, isChecked, checkbox_index):
@@ -2271,7 +2286,6 @@ class FastSimWorld(World):
 
                 self.del_preview_task_button_clicked_moving(type_option_menu.get(), name_option_menu.get())
 
-            print("task_temp = ", self.task_temp)
             self.edit_task_dialog.hide()
             print("[Info] Execute dialog closed")
 
