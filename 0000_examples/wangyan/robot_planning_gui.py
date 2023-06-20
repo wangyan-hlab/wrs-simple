@@ -45,28 +45,28 @@ class FastSimWorld(World):
         self.robot_ip = '192.168.58.2'
         self.pc_ip = '192.168.58.70'
         self.robot_connect = robot_connect
-        self.robot = None           # sim robot
+        self.robot = None               # sim robot
         self.component_name = None
-        self.robot_r = None         # real robot
-        self.robot_teach = None     # robot object for teaching
-        self.robot_plan = None      # robot object for animation
+        self.robot_r = None             # real robot
+        self.robot_teach = None         # robot object for teaching
+        self.robot_plan = None          # robot object for animation
 
-        self.teach_point_temp = {}  # saving points temporarily
-        self.path_temp = {}         # saving paths temporarily
-        self.task_temp = {}         # saving execution sequence of paths/points temporarily
+        self.point_temp = {}            # saving points temporarily
+        self.path_temp = {}             # saving paths temporarily
+        self.task_temp = {'targets':{}} # saving execution sequence of paths/points temporarily
         self.task_targets = []
-        self.model_temp = {}        # saving models shown on the screen temporarily
+        self.model_temp = {}            # saving models shown on the screen temporarily
 
-        self.start_end_conf = []    # saving planning start and goal points
-        self.path = []              # planned path
-        self.endplanningtask = {}    # flag to stop animation
+        self.start_end_conf = []        # saving planning start and goal points
+        self.path = []                  # planned path
+        self.endplanningtask = {}       # flag to stop animation
 
-        self.conf_meshmodel = {}    # visual robot meshmodel for previewing point confs
-        self.path_meshmodel = {}    # visual robot meshmodel for previewing paths
-        self.start_meshmodel = None # visual robot meshmodel for previewing start conf
-        self.goal_meshmodel = None  # visual robot meshmodel for previewing goal conf
-        self.robot_meshmodel = None # visual robot meshmodel for the real robot
-        self.rbtonscreen = [None]   # visual robot meshmodel for animation
+        self.conf_meshmodel = {}        # visual robot meshmodel for previewing point confs
+        self.path_meshmodel = {}        # visual robot meshmodel for previewing paths
+        self.start_meshmodel = None     # visual robot meshmodel for previewing start conf
+        self.goal_meshmodel = None      # visual robot meshmodel for previewing goal conf
+        self.robot_meshmodel = None     # visual robot meshmodel for the 'real' robot
+        self.rbtonscreen = [None]       # visual robot meshmodel for animation
         self.tcp_ball_meshmodel = {}    # visual tcp ball meshmodel for previewing paths
         self.static_models = []
         self.wobj_models = []
@@ -628,12 +628,17 @@ class FastSimWorld(World):
         if self.robot_connect:
             print("[Info] 机器人初始角度(deg): ", np.rad2deg(self.init_conf))
             self.robot.fk(self.component_name, np.asarray(self.init_conf))
+            for i in range(6):
+                self.slider_values[i][0].setValue(np.rad2deg(self.init_conf)[i])
 
             if self.robot_meshmodel is not None:
                 self.robot_meshmodel.detach()
 
             self.robot_meshmodel = self.robot.gen_meshmodel()
             self.robot_meshmodel.attach_to(self)
+        else:
+            for i in range(6):
+                self.slider_values[i][0].setValue(np.zeros(6)[i])
         
         # Teaching enabled right after robot modeling
         self.enable_teaching()
@@ -832,7 +837,6 @@ class FastSimWorld(World):
                     if robot_model is not None:
                         robot_model.detach()
                 
-                modelnames = self.model_temp['robot'][0]
                 self.model_temp['robot'][1] = pose_value
                 pos = pose_value[:3]
                 rotmat = rm.rotmat_from_euler(pose_value[3],pose_value[4],pose_value[5])
@@ -901,7 +905,6 @@ class FastSimWorld(World):
 
             self.edit_modeling()
 
-        else:   # close
             # remove robot meshmodel
             if 'robot' in self.model_temp:
                 if not self.model_temp['robot']:
@@ -932,58 +935,33 @@ class FastSimWorld(World):
                         removed_model = self.wobj_models.pop(model_index)
                         print("removed wobj model:", removed_model)
 
+        else:   # close
             self.edit_model_dialog.hide()
             print("[Info] Edit Model dialog closed")
 
 
-    def save_modeling(self):
+    def save_modeling(self, title='Save Models'):
         """
             Exporting models
         """
 
         print("[Info] exporting models")
 
-        self.export_model_dialog = DirectDialog(dialogName='Export Models',
-                              text='Export models to:',
-                              scale=(0.7, 0.7, 0.7),
-                              buttonTextList=['OK', 'Cancel'],
-                              buttonValueList=[1, 0],
-                              command=self.export_model_dialog_button_clicked_modeling)
-
-        entry = DirectEntry(scale=0.04,
-                            width=10,
-                            pos=(-0.2, 0, -0.1),
-                            initialText='',
-                            focus=1,
-                            frameColor=(1, 1, 1, 1),
-                            parent=self.export_model_dialog)
+        root = tk.Tk()
+        root.withdraw()
+        model_filepath = filedialog.asksaveasfilename(title=title,
+                                                initialdir="./config/models",
+                                                initialfile='Untitled.yaml',
+                                                defaultextension=".yaml",
+                                                filetypes=[("yaml files", "*.yaml")])
         
-        self.export_model_entry = entry
-
-
-    def export_model_dialog_button_clicked_modeling(self, button_value):
-        """
-            Behaviors when 'Export Model' dialog buttons clicked
-        """
-
-        if button_value == 1:   # ok
-            filename = self.export_model_entry.get()
-            
-            this_dir = os.path.split(__file__)[0]
-            dir = os.path.join(this_dir, 'config/models/')
-            if not os.path.exists(dir):
-                os.makedirs(dir)
-            model_filepath = os.path.join(dir, f'{filename}.yaml')
-
+        if model_filepath:
             with open(model_filepath, 'w', encoding='utf-8') as outfile:
                 yaml.dump(self.model_temp, outfile, default_flow_style=False)
 
-            self.export_model_dialog.hide()
             print("[Info] 已保存Model的yaml文件")
 
-        else:   # cancel
-            self.export_model_dialog.hide()
-            print("[Info] Export Model dialog closed")
+        return model_filepath
 
 
     def load_modeling(self):
@@ -1012,7 +990,18 @@ class FastSimWorld(World):
             filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                                 initialdir="./config/models")
             if filepath:
-                print("[Info] 导入的Model YAML文件:", filepath)
+                for robot_model in [self.robot_meshmodel, self.start_meshmodel, 
+                                self.goal_meshmodel, self.rbtonscreen[0]]:
+                    if robot_model is not None:
+                        robot_model.detach()
+
+                for i, static_model in enumerate(self.static_models):     
+                    self.static_models.pop(i)
+                    static_model[1].detach()
+
+                for i, wobj_model in enumerate(self.wobj_models):
+                    self.wobj_models.pop(i)
+                    wobj_model[1].detach()
 
                 self.model_temp = {}
                 self.static_models = []
@@ -1022,73 +1011,73 @@ class FastSimWorld(World):
 
                 print("[Info] 已从yaml文件导入Model:", self.model_temp.keys())
             
-            # import models from yaml file
-            if self.model_temp:
-                robot_model = self.model_temp['robot'][0]
-                robot_model_pose = self.model_temp['robot'][1]
-                robot_pos = robot_model_pose[:3]
-                robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
-                                                    robot_model_pose[4],
-                                                    robot_model_pose[5])
-                if robot_model == 'ur5e':
-                    from robot_sim.robots.ur5e import ur5e
-                    from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+                # import models from yaml file
+                if self.model_temp:
+                    robot_model = self.model_temp['robot'][0]
+                    robot_model_pose = self.model_temp['robot'][1]
+                    robot_pos = robot_model_pose[:3]
+                    robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
+                                                        robot_model_pose[4],
+                                                        robot_model_pose[5])
+                    if robot_model == 'ur5e':
+                        from robot_sim.robots.ur5e import ur5e
+                        from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 
-                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
-                                         pos=robot_pos, rotmat=robot_rotmat)
-                    component = 'arm'
+                        robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
+                                            pos=robot_pos, rotmat=robot_rotmat)
+                        component = 'arm'
 
-                    if self.robot_connect:
-                        print("[Info] 机器人已连接")
-                        self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
-                                                pc_ip=self.pc_ip)
-                        self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
-                    else:
-                        print("[Info] 机器人未连接")
-                        self.init_conf = np.zeros(6)
+                        if self.robot_connect:
+                            print("[Info] 机器人已连接")
+                            self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                                    pc_ip=self.pc_ip)
+                            self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+                        else:
+                            print("[Info] 机器人未连接")
+                            self.init_conf = np.zeros(6)
 
-                elif robot_model == 'fr5':
-                    from robot_sim.robots.fr5 import fr5
-                    from fr_python_sdk.frmove import FRCobot as fr5_real
+                    elif robot_model == 'fr5':
+                        from robot_sim.robots.fr5 import fr5
+                        from fr_python_sdk.frmove import FRCobot as fr5_real
 
-                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
-                                        pos=robot_pos, rotmat=robot_rotmat,
-                                        zrot_to_gndbase=0)
-                    component = 'arm'
-                    if self.robot_connect:
-                        print("[Info] 机器人已连接")
-                        self.robot_r = fr5_real(robot_ip=self.robot_ip)
-                        self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
-                    else:
-                        print("[Info] 机器人未连接")
-                        self.init_conf = np.zeros(6)
+                        robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                                            pos=robot_pos, rotmat=robot_rotmat,
+                                            zrot_to_gndbase=0)
+                        component = 'arm'
+                        if self.robot_connect:
+                            print("[Info] 机器人已连接")
+                            self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                            self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+                        else:
+                            print("[Info] 机器人未连接")
+                            self.init_conf = np.zeros(6)
 
-                self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
-                self.robot_modeling(robot_s, component)
-            
-                # import static models
-                static_models = self.model_temp['static']
-                for static_model in static_models:
-                    static_model_name = static_model[0]
-                    static_model_pose = static_model[1]
-                    static_model_color = static_model[2]
-                    if static_model_name:
-                        self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
-                        self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
-                    
-                        self.static_modeling(static_model_name, static_model_pose, static_model_color)
+                    self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                    self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
+                
+                    # import static models
+                    static_models = self.model_temp['static']
+                    for static_model in static_models:
+                        static_model_name = static_model[0]
+                        static_model_pose = static_model[1]
+                        static_model_color = static_model[2]
+                        if static_model_name:
+                            self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
+                            self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
+                        
+                            self.static_modeling(static_model_name, static_model_pose, static_model_color)
 
-                # import wobj models
-                wobj_models = self.model_temp['wobj']
-                for wobj_model in wobj_models:
-                    wobj_model_name = wobj_model[0]
-                    wobj_model_pose = wobj_model[1]
-                    wobj_model_color = wobj_model[2]
-                    if wobj_model_name:
-                        self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
-                        self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
-                    
-                        self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
+                    # import wobj models
+                    wobj_models = self.model_temp['wobj']
+                    for wobj_model in wobj_models:
+                        wobj_model_name = wobj_model[0]
+                        wobj_model_pose = wobj_model[1]
+                        wobj_model_color = wobj_model[2]
+                        if wobj_model_name:
+                            self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
+                            self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
+                        
+                            self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
             
             self.import_model_dialog.hide()
 
@@ -1098,6 +1087,11 @@ class FastSimWorld(World):
             filepath = filedialog.askopenfilename(filetypes=[("yaml files", "*.yaml")],
                                                 initialdir="./objects/robot")
             if filepath:
+                for robot_model in [self.robot_meshmodel, self.start_meshmodel, 
+                                self.goal_meshmodel, self.rbtonscreen[0]]:
+                    if robot_model is not None:
+                        robot_model.detach()
+
                 print("[Info] 导入的Robot Model文件:", filepath)
 
                 with open(filepath, 'r', encoding='utf-8') as infile:
@@ -1106,50 +1100,51 @@ class FastSimWorld(World):
                      
                 print("[Info] 已导入Robot Model:", self.model_temp['robot'])
             
-            # import models from yaml file
-            if 'robot' in self.model_temp:
-                robot_model = self.model_temp['robot'][0]
-                robot_model_pose = self.model_temp['robot'][1]
-                robot_pos = robot_model_pose[:3]
-                robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
-                                                    robot_model_pose[4],
-                                                    robot_model_pose[5])
-                
-                if robot_model == 'ur5e':
-                    from robot_sim.robots.ur5e import ur5e
-                    from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+                # import models from yaml file
+                if 'robot' in self.model_temp:
+                    robot_model = self.model_temp['robot'][0]
+                    robot_model_pose = self.model_temp['robot'][1]
+                    robot_pos = robot_model_pose[:3]
+                    robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
+                                                        robot_model_pose[4],
+                                                        robot_model_pose[5])
+                    
+                    if robot_model == 'ur5e':
+                        from robot_sim.robots.ur5e import ur5e
+                        from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 
-                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False,
-                                         pos=robot_pos, rotmat=robot_rotmat)
-                    component = 'arm'
+                        robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False,
+                                            pos=robot_pos, rotmat=robot_rotmat)
+                        component = 'arm'
 
-                    if self.robot_connect:
-                        print("[Info] 机器人已连接")
-                        self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
-                                                pc_ip=self.pc_ip)
-                        self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
-                    else:
-                        print("[Info] 机器人未连接")
-                        self.init_conf = np.zeros(6)
+                        if self.robot_connect:
+                            print("[Info] 机器人已连接")
+                            self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                                    pc_ip=self.pc_ip)
+                            self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+                        else:
+                            print("[Info] 机器人未连接")
+                            self.init_conf = np.zeros(6)
 
-                elif robot_model == 'fr5':
-                    from robot_sim.robots.fr5 import fr5
-                    from fr_python_sdk.frmove import FRCobot as fr5_real
+                    elif robot_model == 'fr5':
+                        from robot_sim.robots.fr5 import fr5
+                        from fr_python_sdk.frmove import FRCobot as fr5_real
 
-                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
-                                        pos=robot_pos, rotmat=robot_rotmat,
-                                        zrot_to_gndbase=0)
-                    component = 'arm'
-                    if self.robot_connect:
-                        print("[Info] 机器人已连接")
-                        self.robot_r = fr5_real(robot_ip=self.robot_ip)
-                        self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
-                    else:
-                        print("[Info] 机器人未连接")
-                        self.init_conf = np.zeros(6)
+                        robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                                            pos=robot_pos, rotmat=robot_rotmat,
+                                            zrot_to_gndbase=0)
+                        component = 'arm'
+                        if self.robot_connect:
+                            print("[Info] 机器人已连接")
+                            self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                            self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+                        else:
+                            print("[Info] 机器人未连接")
+                            self.init_conf = np.zeros(6)
 
-                self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
-                self.robot_modeling(robot_s, component)
+                    self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                    self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
+
             self.import_model_dialog.hide()
 
         elif button_value == 3: # import from model file
@@ -1210,7 +1205,7 @@ class FastSimWorld(World):
         """
 
         print("[Info] Teaching enabled")
-        self.rbtonscreen = [None]
+
         taskMgr.doMethodLater(0.02, self.point_teaching, "point_teaching", 
                         extraArgs=[self.rbtonscreen, self.robot_teach, self.component_name], 
                         appendTask=True)
@@ -1248,9 +1243,17 @@ class FastSimWorld(World):
         else:
             print("[Warning] The given joint angles are out of joint limits.")
  
-        if 'robot' in self.model_temp:
-            if not self.model_temp['robot']:
+        if 'robot' not in self.model_temp:
+            if rbtonscreen[0] is not None:
+                rbtonscreen[0].detach()
+                rbtonscreen = [None]
                 return task.done
+        else:
+            if not self.model_temp['robot']:
+                if rbtonscreen[0] is not None:
+                    rbtonscreen[0].detach()
+                    rbtonscreen = [None]
+                    return task.done
     
         return task.again
     
@@ -1291,7 +1294,7 @@ class FastSimWorld(World):
             jnt_values = list(np.rad2deg(self.robot_teach.get_jnt_values()))
             for i in range(6):
                 jnt_values[i] = round(float(jnt_values[i]), 3)
-            self.teach_point_temp[record_name] = jnt_values
+            self.point_temp[record_name] = jnt_values
             self.record_point_dialog.hide()
 
         else:   # close
@@ -1313,13 +1316,13 @@ class FastSimWorld(World):
                                             scale=(0.4, 0.4, 0.4),
                                             buttonTextList=['Remove', 'Close'],
                                             buttonValueList=[1, 0],
-                                            frameSize=(-1.5,1.5,-0.1-0.1*len(self.teach_point_temp),1),
+                                            frameSize=(-1.5,1.5,-0.1-0.1*len(self.point_temp),1),
                                             frameColor=(0.8,0.8,0.8,0.9),
                                             command=self.edit_point_dialog_button_clicked_teaching,
                                             parent=self.point_mgr_menu_frame)
         
-        self.edit_point_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.teach_point_temp)))
-        self.edit_point_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.teach_point_temp)))
+        self.edit_point_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.point_temp)))
+        self.edit_point_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.point_temp)))
 
         DirectLabel(text="Point Name", 
                     pos=(-1.3, 0, 0.8),
@@ -1341,7 +1344,7 @@ class FastSimWorld(World):
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
-        for i, (point_name, joint_values) in enumerate(self.teach_point_temp.items()):
+        for i, (point_name, joint_values) in enumerate(self.point_temp.items()):
             DirectLabel(text=point_name, 
                         pos=(-1.3, 0, 0.6-i*0.15), 
                         scale=0.07, 
@@ -1388,7 +1391,7 @@ class FastSimWorld(World):
         if point_name in self.conf_meshmodel:
             self.conf_meshmodel[point_name].detach()
         # Preview conf
-        conf = np.deg2rad(self.teach_point_temp[point_name])
+        conf = np.deg2rad(self.point_temp[point_name])
         self.robot_teach.fk(self.component_name, conf)
         self.conf_meshmodel[point_name] = self.robot_teach.gen_meshmodel(toggle_tcpcs=True, rgba=[1,1,0,0.3])
         self.conf_meshmodel[point_name].attach_to(self)
@@ -1422,7 +1425,7 @@ class FastSimWorld(World):
         if button_value == 1:   # remove
             for point_name, checkbox_state in self.edit_point_checkbox_values:
                 if checkbox_state:
-                    removed_point = self.teach_point_temp.pop(point_name)
+                    removed_point = self.point_temp.pop(point_name)
                     self.del_preview_point_button_clicked_moving(point_name)
                     print("[Info] 该示教点已被移除:", removed_point)
             self.edit_point_dialog.hide()
@@ -1438,54 +1441,28 @@ class FastSimWorld(World):
             print("[Info] Edit Point dialog closed")
 
 
-    def save_teaching(self):
+    def save_teaching(self, title='Save Points'):
         """
             Exporting teaching point
         """
 
         print("[Info] exporting points")
 
-        self.export_point_dialog = DirectDialog(dialogName='Export Points',
-                              text='Export points to:',
-                              scale=(0.7, 0.7, 0.7),
-                              buttonTextList=['OK', 'Cancel'],
-                              buttonValueList=[1, 0],
-                              command=self.export_point_dialog_button_clicked_gui)
-
-        entry = DirectEntry(scale=0.04,
-                            width=10,
-                            pos=(-0.2, 0, -0.1),
-                            initialText='',
-                            focus=1,
-                            frameColor=(1, 1, 1, 1),
-                            parent=self.export_point_dialog)
+        root = tk.Tk()
+        root.withdraw()
+        point_filepath = filedialog.asksaveasfilename(title=title,
+                                                initialdir="./config/points",
+                                                initialfile='Untitled.yaml',
+                                                defaultextension=".yaml",
+                                                filetypes=[("yaml files", "*.yaml")])
         
-        self.export_point_entry = entry
-
-        
-    def export_point_dialog_button_clicked_gui(self, button_value):
-        """
-            Behaviors when 'Export Point' dialog buttons clicked
-        """
-
-        if button_value == 1:   # ok
-            filename = self.export_point_entry.get()
-            
-            this_dir = os.path.split(__file__)[0]
-            dir = os.path.join(this_dir, 'config/points/')
-            if not os.path.exists(dir):
-                os.makedirs(dir)
-            point_filepath = os.path.join(dir, f'{filename}.yaml')
-
+        if point_filepath:
             with open(point_filepath, 'w', encoding='utf-8') as outfile:
-                yaml.dump(self.teach_point_temp, outfile, default_flow_style=False)
+                yaml.dump(self.point_temp, outfile, default_flow_style=False)
 
-            self.export_point_dialog.hide()
             print("[Info] 已保存Point的yaml文件")
 
-        else:   # cancel
-            self.export_point_dialog.hide()
-            print("[Info] Export Point dialog closed")
+        return point_filepath
 
 
     def load_teaching(self):
@@ -1502,11 +1479,11 @@ class FastSimWorld(World):
         if filepath:
             print("[Info] 导入的Point文件:", filepath)
 
-            self.teach_point_temp = {}
+            self.point_temp = {}
             with open(filepath, 'r', encoding='utf-8') as infile:
-                self.teach_point_temp = yaml.load(infile, Loader=yaml.FullLoader)
+                self.point_temp = yaml.load(infile, Loader=yaml.FullLoader)
 
-            print("[Info] 已导入Point:", self.teach_point_temp.keys())
+            print("[Info] 已导入Point:", self.point_temp.keys())
 
 
     """
@@ -1537,8 +1514,8 @@ class FastSimWorld(World):
                     scale=0.07,
                     parent=self.plan_dialog)
         
-        if self.teach_point_temp:
-            options = list(self.teach_point_temp.keys())
+        if self.point_temp:
+            options = list(self.point_temp.keys())
         else:
             options = ['- no points -']
 
@@ -1567,7 +1544,7 @@ class FastSimWorld(World):
         self.plan_dialog.buttonList[4].setPos((0.8, 0, 0.1))
 
         # Prevent from crash when planning without points
-        if not self.teach_point_temp:
+        if not self.point_temp:
             for i in range(4):
                 self.plan_dialog.buttonList[i]['state'] = DGG.DISABLED
 
@@ -1577,9 +1554,9 @@ class FastSimWorld(World):
             Behaviors when 'Plan' dialog buttons clicked
         """
 
-        if self.teach_point_temp:
-            start_conf = np.deg2rad(self.teach_point_temp[self.start_option_menu.get()])
-            goal_conf = np.deg2rad(self.teach_point_temp[self.goal_option_menu.get()])
+        if self.point_temp:
+            start_conf = np.deg2rad(self.point_temp[self.start_option_menu.get()])
+            goal_conf = np.deg2rad(self.point_temp[self.goal_option_menu.get()])
 
             self.start_end_conf = []
             self.start_end_conf.append(start_conf)
@@ -1605,17 +1582,21 @@ class FastSimWorld(World):
                                         max_time=300)
             time_end = time.time()
             print("Planning time = ", time_end-time_start)
-            print(f"Path length = {len(self.path)}\nPath = {self.path}")
 
-            print("[Info] Plan animation started")
-            # Motion planning animation
-            rbtmnp = [None]
-            motioncounter = [0]
-            path_name = 'plan_preview'
-            taskMgr.doMethodLater(0.1, self.animation_moving, "animation_moving",
-                                extraArgs=[rbtmnp, motioncounter, self.robot_plan, 
-                                        self.path, path_name, self.component_name], 
-                                appendTask=True)
+            if self.path:
+                print(f"Path length = {len(self.path)}\nPath = {self.path}")
+
+                print("[Info] Plan animation started")
+                # Motion planning animation
+                rbtmnp = [None]
+                motioncounter = [0]
+                path_name = 'plan_preview'
+                taskMgr.doMethodLater(0.1, self.animation_moving, "animation_moving",
+                                    extraArgs=[rbtmnp, motioncounter, self.robot_plan, 
+                                            self.path, path_name, self.component_name], 
+                                    appendTask=True)
+            else:
+                print("[Info] Planning failed!")
                 
         elif button_value in [3, 4, 0]:
             self.endplanningtask['plan_preview'] = 1
@@ -1754,15 +1735,15 @@ class FastSimWorld(World):
             Executing the path 
         """
 
-        if self.task_temp:
+        if self.task_temp['targets']:
             execute_targets = []
 
-            for target_num, [target_type, target_name] in self.task_temp.items():
+            for target_num, [target_type, target_name] in self.task_temp['targets'].items():
                 if target_type == 'path':
                     target = self.path_temp[target_name]
                     execute_targets.append(['path', np.deg2rad(target)])
                 else:
-                    target = self.teach_point_temp[target_name]
+                    target = self.point_temp[target_name]
                     execute_targets.append(['point', np.deg2rad(target)])
 
             if execute_targets:
@@ -1963,54 +1944,28 @@ class FastSimWorld(World):
             print("[Info] Edit Path dialog closed")
 
 
-    def save_moving(self):
+    def save_moving(self, title='Save Paths'):
         """
             Exporting the path
         """
         
         print("[Info] exporting path")
 
-        self.export_path_dialog = DirectDialog(dialogName='Export Path',
-                                    text='Export path to:',
-                                    scale=(0.7, 0.7, 0.7),
-                                    buttonTextList=['OK', 'Cancel'],
-                                    buttonValueList=[1, 0],
-                                    command=self.export_path_dialog_button_clicked_moving)
-
-        entry = DirectEntry(scale=0.04,
-                            width=10,
-                            pos=(-0.2, 0, -0.1),
-                            initialText='',
-                            focus=1,
-                            frameColor=(1, 1, 1, 1),
-                            parent=self.export_path_dialog)
+        root = tk.Tk()
+        root.withdraw()
+        path_filepath = filedialog.asksaveasfilename(title=title,
+                                                initialdir="./config/paths",
+                                                initialfile='Untitled.yaml',
+                                                defaultextension=".yaml",
+                                                filetypes=[("yaml files", "*.yaml")])
         
-        self.export_path_entry = entry
-
-
-    def export_path_dialog_button_clicked_moving(self, button_value):
-        """
-            Behaviors when 'Export Path' dialog buttons clicked
-        """
-
-        if button_value == 1:   # ok
-            filename = self.export_path_entry.get()
-            
-            this_dir = os.path.split(__file__)[0]
-            dir = os.path.join(this_dir, 'config/paths/')
-            if not os.path.exists(dir):
-                os.makedirs(dir)
-            path_filepath = os.path.join(dir, f'{filename}.yaml')
-
+        if path_filepath:
             with open(path_filepath, 'w', encoding='utf-8') as outfile:
                 yaml.dump(self.path_temp, outfile, default_flow_style=False)
 
-            self.export_path_dialog.hide()
             print("[Info] 已保存Path的yaml文件")
 
-        else:   # cancel
-            self.export_path_dialog.hide()
-            print("[Info] Export Path dialog closed")
+        return path_filepath
 
 
     def load_moving(self):
@@ -2049,16 +2004,16 @@ class FastSimWorld(World):
                                         scale=(0.4, 0.4, 0.4),
                                         buttonTextList=['Add', 'Apply', 'Close'],
                                         buttonValueList=[1, 2, 0],
-                                        frameSize=(-1.5, 1.5, -0.1-0.2*len(self.task_temp), 1),
+                                        frameSize=(-1.5, 1.5, -0.1-0.2*len(self.task_temp['targets']), 1),
                                         frameColor=(0.8, 0.8, 0.8, 0.9),
                                         command=self.edit_task_dialog_button_clicked_task,
                                         parent=self.task_mgr_menu_frame)
         
-        self.edit_task_dialog.buttonList[0].setPos((0.4, 0, 0.05-0.2*len(self.task_temp)))
-        self.edit_task_dialog.buttonList[1].setPos((0.7, 0, 0.05-0.2*len(self.task_temp)))
-        self.edit_task_dialog.buttonList[2].setPos((1.0, 0, 0.05-0.2*len(self.task_temp)))
+        self.edit_task_dialog.buttonList[0].setPos((0.4, 0, 0.05-0.2*len(self.task_temp['targets'])))
+        self.edit_task_dialog.buttonList[1].setPos((0.7, 0, 0.05-0.2*len(self.task_temp['targets'])))
+        self.edit_task_dialog.buttonList[2].setPos((1.0, 0, 0.05-0.2*len(self.task_temp['targets'])))
 
-        if not self.path_temp and not self.teach_point_temp:
+        if not self.path_temp and not self.point_temp:
             self.edit_task_dialog.buttonList[0]['state'] = DGG.DISABLED
 
         DirectLabel(text="Target Type", 
@@ -2082,7 +2037,7 @@ class FastSimWorld(World):
                     parent=self.edit_task_dialog)
         
         self.task_targets = []
-        for i, (target_num, [target_type, target_name]) in enumerate(self.task_temp.items()):
+        for i, (target_num, [target_type, target_name]) in enumerate(self.task_temp['targets'].items()):
             DirectLabel(text=str(i+1),
                         pos=(-1.4, 0, 0.6-0.2*i),
                         scale=0.07,
@@ -2102,7 +2057,7 @@ class FastSimWorld(World):
             target_type = type_option_menu.get()
 
             if target_type == "point":
-                name_options = list(self.teach_point_temp.keys())
+                name_options = list(self.point_temp.keys())
             else:
                 name_options = list(self.path_temp.keys())
             name_option_initialitem = name_options.index(target_name)
@@ -2189,7 +2144,7 @@ class FastSimWorld(World):
         """
 
         if value == "point":
-            new_items = list(self.teach_point_temp.keys())
+            new_items = list(self.point_temp.keys())
         else:
             new_items = list(self.path_temp.keys())
         
@@ -2206,7 +2161,7 @@ class FastSimWorld(World):
                                                 parent=self.edit_task_dialog)
         
         target_name = self.task_targets[index][2].get()
-        self.task_temp[str(index+1)] = [value, target_name]
+        self.task_temp['targets'][str(index+1)] = [value, target_name]
 
 
     def update_task_temp_task(self, value, index):
@@ -2215,7 +2170,7 @@ class FastSimWorld(World):
         """
 
         target_type = self.task_targets[index][1].get() 
-        self.task_temp[str(index+1)] = [target_type, value]
+        self.task_temp['targets'][str(index+1)] = [target_type, value]
 
     
     def edit_task_dialog_button_clicked_task(self, button_value):
@@ -2224,7 +2179,7 @@ class FastSimWorld(World):
         """
         
         if button_value == 1:   # add
-            line_num = len(self.task_temp)
+            line_num = len(self.task_temp['targets'])
             DirectLabel(text=str(line_num+1),
                         pos=(-1.4, 0, 0.6-line_num*0.2),
                         scale=0.07,
@@ -2241,7 +2196,7 @@ class FastSimWorld(World):
                                                 extraArgs=[line_num],
                                                 parent=self.edit_task_dialog)
 
-            name_options = list(self.teach_point_temp.keys())
+            name_options = list(self.point_temp.keys())
             name_option_menu = DirectOptionMenu(text_pos=(1, -0.4),
                                                 scale=(0.07, 0.07, 0.07),
                                                 frameSize=(0, 10, -1, 1),
@@ -2261,10 +2216,10 @@ class FastSimWorld(World):
                             parent=self.edit_task_dialog)
             
             self.task_targets.append([str(line_num+1), type_option_menu, name_option_menu, False])
-            self.task_temp[str(line_num+1)] = ["target_type_placeholder", "target_name_placeholder"]
+            self.task_temp['targets'][str(line_num+1)] = ["target_type_placeholder", "target_name_placeholder"]
 
             for target_num, type_option_menu, name_option_menu, checkbox_state in self.task_targets:
-                self.task_temp[target_num] = [type_option_menu.get(), name_option_menu.get()]
+                self.task_temp['targets'][target_num] = [type_option_menu.get(), name_option_menu.get()]
 
             self.edit_task_dialog.hide()
             self.edit_task()
@@ -2273,16 +2228,16 @@ class FastSimWorld(World):
             # remove targets
             for target_num, _, _, checkbox_state in self.task_targets:
                 if checkbox_state:
-                    [target_type, target_name] = self.task_temp[target_num]
+                    [target_type, target_name] = self.task_temp['targets'][target_num]
                     self.del_preview_task_button_clicked_moving(target_type, target_name)
-                    removed_target = self.task_temp.pop(target_num)
+                    removed_target = self.task_temp['targets'].pop(target_num)
                     print("[Info] 该任务目标已被移除:", removed_target)
                     
             # reassign target_num
             task_temp_swap = {}
-            for i, (_, [target_type, target_name]) in enumerate(self.task_temp.items()):
+            for i, (_, [target_type, target_name]) in enumerate(self.task_temp['targets'].items()):
                 task_temp_swap[str(i+1)] = [target_type, target_name]
-            self.task_temp = task_temp_swap
+            self.task_temp['targets'] = task_temp_swap
 
             self.edit_task_dialog.hide()
             print("[Info] Edit Task completed")
@@ -2292,7 +2247,7 @@ class FastSimWorld(World):
         else:   # close
             # refresh the task dict
             for target_num, type_option_menu, name_option_menu, checkbox_state in self.task_targets:
-                self.task_temp[target_num] = [type_option_menu.get(), name_option_menu.get()]
+                self.task_temp['targets'][target_num] = [type_option_menu.get(), name_option_menu.get()]
 
                 self.del_preview_task_button_clicked_moving(type_option_menu.get(), name_option_menu.get())
 
@@ -2300,56 +2255,55 @@ class FastSimWorld(World):
             print("[Info] Execute dialog closed")
 
 
-    def save_task(self):
+    def save_task(self, title='Save Task'):
         """
             Exporting tasks
         """
 
         print("[Info] exporting task")
 
-        self.export_task_dialog = DirectDialog(dialogName='Export Task',
-                                    text='Export task to:',
-                                    scale=(0.7, 0.7, 0.7),
-                                    buttonTextList=['OK', 'Cancel'],
-                                    buttonValueList=[1, 0],
-                                    command=self.export_task_dialog_button_clicked_moving)
+        model_filepath = self.save_modeling(title='Save Task - Models')
 
-        entry = DirectEntry(scale=0.04,
-                            width=10,
-                            pos=(-0.2, 0, -0.1),
-                            initialText='',
-                            focus=1,
-                            frameColor=(1, 1, 1, 1),
-                            parent=self.export_task_dialog)
-        
-        self.export_task_entry = entry
+        if model_filepath:
+            point_filepath = self.save_teaching(title='Save Task - Points')
+            if point_filepath:
+                path_filepath = self.save_moving(title='Save Task - Paths')
+                if not path_filepath:
+                    print("[Info] 未保存任务Path文件,已退出")
+            else:
+                print("[Info] 未保存任务Point文件,已退出")
+        else:
+            print("[Info] 未保存任务Model文件,已退出")
+
+        if model_filepath and point_filepath and path_filepath:
+            model_filename_pattern = re.compile(r"/models/([\s\S]*?)\.yaml")
+            model_filename = model_filename_pattern.findall(model_filepath)
+
+            point_filename_pattern = re.compile(r"/points/([\s\S]*?)\.yaml")
+            point_filename = point_filename_pattern.findall(point_filepath)
+
+            path_filename_pattern = re.compile(r"/paths/([\s\S]*?)\.yaml")
+            path_filename = path_filename_pattern.findall(path_filepath)
             
+            self.task_temp['model_filename'] = model_filename
+            self.task_temp['point_filename'] = point_filename
+            self.task_temp['path_filename'] = path_filename
 
-    def export_task_dialog_button_clicked_moving(self, button_value):
-        """
-            Behaviors when 'Export Task' dialog buttons clicked
-        """
-        
-        if button_value == 1:   # ok
-            filename = self.export_task_entry.get()
+            root = tk.Tk()
+            root.withdraw()
+            task_filepath = filedialog.asksaveasfilename(title=title,
+                                                    initialdir="./config/tasks",
+                                                    initialfile='Untitled.yaml',
+                                                    defaultextension=".yaml",
+                                                    filetypes=[("yaml files", "*.yaml")])
             
-            this_dir = os.path.split(__file__)[0]
-            dir = os.path.join(this_dir, 'config/tasks/')
-            if not os.path.exists(dir):
-                os.makedirs(dir)
-            task_filepath = os.path.join(dir, f'{filename}.yaml')
+            if task_filepath:
+                with open(task_filepath, 'w', encoding='utf-8') as outfile:
+                    yaml.dump(self.task_temp, outfile, default_flow_style=False)
 
-            with open(task_filepath, 'w', encoding='utf-8') as outfile:
-                yaml.dump(self.task_temp, outfile, default_flow_style=False)
-
-            self.export_task_dialog.hide()
             print("[Info] 已保存Task的yaml文件")
 
-        else:   # close
-            self.export_task_dialog.hide()
-            print("[Info] Export Task dialog closed")
 
-    
     def load_task(self):
         """
             Importing tasks
@@ -2367,5 +2321,109 @@ class FastSimWorld(World):
             self.task_temp = {}
             with open(filepath, 'r', encoding='utf-8') as infile:
                 self.task_temp = yaml.load(infile, Loader=yaml.FullLoader)
+            # 导入 models, points, paths
+            model_filename = self.task_temp['model_filename'][0]
+            point_filename = self.task_temp['point_filename'][0]
+            path_filename = self.task_temp['path_filename'][0]
 
+            # 导入 models
+            for robot_model in [self.robot_meshmodel, self.start_meshmodel, 
+                                self.goal_meshmodel, self.rbtonscreen[0]]:
+                if robot_model is not None:
+                    robot_model.detach()
+
+            for i, static_model in enumerate(self.static_models):     
+                self.static_models.pop(i)
+                static_model[1].detach()
+
+            for i, wobj_model in enumerate(self.wobj_models):
+                self.wobj_models.pop(i)
+                wobj_model[1].detach()
+
+            model_filepath = f"./config/models/{model_filename}.yaml"
+            print("[Info] 导入的Model文件:", model_filepath)
+            
+            with open(model_filepath, 'r', encoding='utf-8') as infile:
+                self.model_temp = yaml.load(infile, Loader=yaml.FullLoader)
+            if self.model_temp:
+                robot_model = self.model_temp['robot'][0]
+                robot_model_pose = self.model_temp['robot'][1]
+                robot_pos = robot_model_pose[:3]
+                robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
+                                                    robot_model_pose[4],
+                                                    robot_model_pose[5])
+                if robot_model == 'ur5e':
+                    from robot_sim.robots.ur5e import ur5e
+                    from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+
+                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
+                                         pos=robot_pos, rotmat=robot_rotmat)
+                    component = 'arm'
+
+                    if self.robot_connect:
+                        print("[Info] 机器人已连接")
+                        self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                                pc_ip=self.pc_ip)
+                        self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+                    else:
+                        print("[Info] 机器人未连接")
+                        self.init_conf = np.zeros(6)
+
+                elif robot_model == 'fr5':
+                    from robot_sim.robots.fr5 import fr5
+                    from fr_python_sdk.frmove import FRCobot as fr5_real
+
+                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                                        pos=robot_pos, rotmat=robot_rotmat,
+                                        zrot_to_gndbase=0)
+                    component = 'arm'
+                    if self.robot_connect:
+                        print("[Info] 机器人已连接")
+                        self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                        self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+                    else:
+                        print("[Info] 机器人未连接")
+                        self.init_conf = np.zeros(6)
+                
+                self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
+            
+                # import static models
+                static_models = self.model_temp['static']
+                for static_model in static_models:
+                    static_model_name = static_model[0]
+                    static_model_pose = static_model[1]
+                    static_model_color = static_model[2]
+                    if static_model_name:
+                        self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
+                        self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
+                    
+                        self.static_modeling(static_model_name, static_model_pose, static_model_color)
+
+                # import wobj models
+                wobj_models = self.model_temp['wobj']
+                for wobj_model in wobj_models:
+                    wobj_model_name = wobj_model[0]
+                    wobj_model_pose = wobj_model[1]
+                    wobj_model_color = wobj_model[2]
+                    if wobj_model_name:
+                        self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
+                        self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
+                    
+                        self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
+
+            # 导入 points
+            point_filepath = f"./config/points/{point_filename}.yaml"
+            print("[Info] 导入的Point文件:", point_filepath)
+            self.point_temp = {}
+            with open(point_filepath, 'r', encoding='utf-8') as infile:
+                self.point_temp = yaml.load(infile, Loader=yaml.FullLoader)
+
+            # 导入 paths
+            path_filepath = f"./config/paths/{path_filename}.yaml"
+            print("[Info] 导入的Path文件:", path_filepath)
+            self.path_temp = {}
+            with open(path_filepath, 'r', encoding='utf-8') as infile:
+                self.path_temp = yaml.load(infile, Loader=yaml.FullLoader)
+            
             print("[Info] 已导入Task", filepath)
