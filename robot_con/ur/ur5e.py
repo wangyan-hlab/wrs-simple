@@ -144,16 +144,17 @@ class UR5ERtqHE():
         regulated_jnt_values = rm.regulate_angle(-math.pi, math.pi, jnt_values)
         self.move_jnts(regulated_jnt_values)
 
-    def move_jntspace_path(self, path, control_frequency=.005, 
-                           max_vels=np.ones(6)*math.pi*0.1, 
-                           max_accs=np.ones(6)*math.pi*0.1, 
+    def move_jntspace_path(self, path, 
+                           control_frequency=.005, 
+                           max_vels=None, 
+                           max_accs=None, 
                            interpolation_method=None):
         """
         move robot_s arm following a given jointspace path
         :param path:
         :param control_frequency: the program will sample time_intervals/control_frequency confs, see motion.trajectory
-        :param interval_time: equals to expandis/speed, speed = degree/second
-                              by default, the value is 1.0 and the speed is expandis/second
+        :param max_vels: max jnt speed between two adjacent poses in the path, math.pi if None
+        :param max_accs: max jnt speed between two adjacent poses in the path, math.pi if None
         :param interpolation_method
         :return:
         author: weiwei
