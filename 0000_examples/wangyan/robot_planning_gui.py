@@ -1844,10 +1844,13 @@ class FastSimWorld(World):
 
         for target in targets:
             if target[0] == 'point':
+                print("[Info] 执行point")
                 self.robot_r.move_jnts(np.rad2deg(target[1]))
             else:
+                print("[Info] 执行path")
                 self.robot_r.move_jnts(np.rad2deg(target[1][0]))
                 self.robot_r.move_jntspace_path(target[1])
+                time.sleep(0.2*len(target[1]))
 
 
     def edit_moving(self):
@@ -2445,28 +2448,30 @@ class FastSimWorld(World):
                         self.slider_values[i][0].setRange()
 
                 # import static models
-                static_models = self.model_temp['static']
-                for static_model in static_models:
-                    static_model_name = static_model[0]
-                    static_model_pose = static_model[1]
-                    static_model_color = static_model[2]
-                    if static_model_name:
-                        self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
-                        self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
-                    
-                        self.static_modeling(static_model_name, static_model_pose, static_model_color)
+                if 'static' in self.model_temp:
+                    static_models = self.model_temp['static']
+                    for static_model in static_models:
+                        static_model_name = static_model[0]
+                        static_model_pose = static_model[1]
+                        static_model_color = static_model[2]
+                        if static_model_name:
+                            self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
+                            self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
+                        
+                            self.static_modeling(static_model_name, static_model_pose, static_model_color)
 
                 # import wobj models
-                wobj_models = self.model_temp['wobj']
-                for wobj_model in wobj_models:
-                    wobj_model_name = wobj_model[0]
-                    wobj_model_pose = wobj_model[1]
-                    wobj_model_color = wobj_model[2]
-                    if wobj_model_name:
-                        self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
-                        self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
-                    
-                        self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
+                if 'wobj' in self.model_temp:
+                    wobj_models = self.model_temp['wobj']
+                    for wobj_model in wobj_models:
+                        wobj_model_name = wobj_model[0]
+                        wobj_model_pose = wobj_model[1]
+                        wobj_model_color = wobj_model[2]
+                        if wobj_model_name:
+                            self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
+                            self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
+                        
+                            self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
 
             # 导入 points
             point_filepath = f"./config/points/{point_filename}.yaml"
