@@ -1029,71 +1029,74 @@ class FastSimWorld(World):
             
                 # import models from yaml file
                 if self.model_temp:
-                    robot_model = self.model_temp['robot'][0]
-                    robot_model_pose = self.model_temp['robot'][1]
-                    robot_pos = robot_model_pose[:3]
-                    robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
-                                                        robot_model_pose[4],
-                                                        robot_model_pose[5])
-                    if robot_model == 'ur5e':
-                        from robot_sim.robots.ur5e import ur5e
-                        from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
+                    if 'robot' in self.model_temp:
+                        robot_model = self.model_temp['robot'][0]
+                        robot_model_pose = self.model_temp['robot'][1]
+                        robot_pos = robot_model_pose[:3]
+                        robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
+                                                            robot_model_pose[4],
+                                                            robot_model_pose[5])
+                        if robot_model == 'ur5e':
+                            from robot_sim.robots.ur5e import ur5e
+                            from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
 
-                        robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
-                                            pos=robot_pos, rotmat=robot_rotmat)
-                        component = 'arm'
+                            robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
+                                                pos=robot_pos, rotmat=robot_rotmat)
+                            component = 'arm'
 
-                        if self.robot_connect:
-                            print("[Info] 机器人已连接")
-                            self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
-                                                    pc_ip=self.pc_ip)
-                            self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
-                        else:
-                            print("[Info] 机器人未连接")
-                            self.init_conf = np.zeros(6)
+                            if self.robot_connect:
+                                print("[Info] 机器人已连接")
+                                self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
+                                                        pc_ip=self.pc_ip)
+                                self.init_conf = self.robot_r.get_jnt_values()  # 实际机器人的初始关节角度
+                            else:
+                                print("[Info] 机器人未连接")
+                                self.init_conf = np.zeros(6)
 
-                    elif robot_model == 'fr5':
-                        from robot_sim.robots.fr5 import fr5
-                        from fr_python_sdk.frmove import FRCobot as fr5_real
+                        elif robot_model == 'fr5':
+                            from robot_sim.robots.fr5 import fr5
+                            from fr_python_sdk.frmove import FRCobot as fr5_real
 
-                        robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
-                                            pos=robot_pos, rotmat=robot_rotmat,
-                                            zrot_to_gndbase=0)
-                        component = 'arm'
-                        if self.robot_connect:
-                            print("[Info] 机器人已连接")
-                            self.robot_r = fr5_real(robot_ip=self.robot_ip)
-                            self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
-                        else:
-                            print("[Info] 机器人未连接")
-                            self.init_conf = np.zeros(6)
+                            robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                                                pos=robot_pos, rotmat=robot_rotmat,
+                                                zrot_to_gndbase=0)
+                            component = 'arm'
+                            if self.robot_connect:
+                                print("[Info] 机器人已连接")
+                                self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                                self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
+                            else:
+                                print("[Info] 机器人未连接")
+                                self.init_conf = np.zeros(6)
 
-                    self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
-                    self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
+                        self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                        self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
                 
                     # import static models
-                    static_models = self.model_temp['static']
-                    for static_model in static_models:
-                        static_model_name = static_model[0]
-                        static_model_pose = static_model[1]
-                        static_model_color = static_model[2]
-                        if static_model_name:
-                            self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
-                            self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
-                        
-                            self.static_modeling(static_model_name, static_model_pose, static_model_color)
+                    if 'static' in self.model_temp:
+                        static_models = self.model_temp['static']
+                        for static_model in static_models:
+                            static_model_name = static_model[0]
+                            static_model_pose = static_model[1]
+                            static_model_color = static_model[2]
+                            if static_model_name:
+                                self.model_init_pose_values[f"static-{static_model_name}"] = static_model_pose
+                                self.model_init_color_values[f"static-{static_model_name}"] = static_model_color
+                            
+                                self.static_modeling(static_model_name, static_model_pose, static_model_color)
 
                     # import wobj models
-                    wobj_models = self.model_temp['wobj']
-                    for wobj_model in wobj_models:
-                        wobj_model_name = wobj_model[0]
-                        wobj_model_pose = wobj_model[1]
-                        wobj_model_color = wobj_model[2]
-                        if wobj_model_name:
-                            self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
-                            self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
-                        
-                            self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
+                    if 'wobj' in self.model_temp:
+                        wobj_models = self.model_temp['wobj']
+                        for wobj_model in wobj_models:
+                            wobj_model_name = wobj_model[0]
+                            wobj_model_pose = wobj_model[1]
+                            wobj_model_color = wobj_model[2]
+                            if wobj_model_name:
+                                self.model_init_pose_values[f"wobj-{wobj_model_name}"] = wobj_model_pose
+                                self.model_init_color_values[f"wobj-{wobj_model_name}"] = wobj_model_color
+                            
+                                self.wobj_modeling(wobj_model_name, wobj_model_pose, wobj_model_color)
             
             self.import_model_dialog.hide()
 
