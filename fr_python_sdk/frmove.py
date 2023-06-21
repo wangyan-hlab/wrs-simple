@@ -56,6 +56,14 @@ class FRCobot(object):
             # print(f"GetJointPos 成功,关节位置({unit}):", getjntpos_ret[1:])
             return getjntpos_ret[1:]
 
+    
+    def get_jnt_values(self):
+        """
+            Another name of GetJointPos(), but only in rad
+        """
+
+        self.GetJointPos(flag=0, unit="rad")
+
 
     def GetTCPPose(self, flag=0, tool="tool"):
         """
@@ -429,6 +437,17 @@ class FRCobot(object):
             return # MoveJ()失败则直接结束
     
 
+    def move_jnts(self, target_pos, target_flag="joint", 
+                  vel=50.0, ovl=100.0, exaxis_pos=[0.0, 0.0, 0.0, 0.0], blendT=-1.0, 
+                  offset_flag=0, offset_pos=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]):
+        """
+            Another name of MoveJ()
+        """
+
+        self.MoveJ(self, target_pos, target_flag, vel, ovl, 
+                   exaxis_pos, blendT, offset_flag, offset_pos)
+
+
     def MoveL(self, target_pos, target_flag="joint", 
               vel=50.0, ovl=100.0, exaxis_pos=[0.0, 0.0, 0.0, 0.0], blendR=-1.0, 
               search=0, offset_flag=0, offset_pos=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]):
@@ -546,3 +565,10 @@ class FRCobot(object):
                 self.ResetAllError() # 尝试清除错误状态
                 return # ServoJ()失败则直接结束
                 
+    
+    def move_jntspace_path(self, target_pos_seq, time_period=0.008, t_wait=0.02, granularity=0.1):
+        """
+            Another name of MoveJSeq()
+        """
+
+        self.MoveJSeq(self, np.rad2deg(target_pos_seq), time_period, t_wait, granularity)

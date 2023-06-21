@@ -22,7 +22,7 @@ class FastSimWorld(World):
 
     def __init__(self, 
                  cam_pos=[3, 3, 1], 
-                 lookat_pos=[0, 0.5, 0],
+                 lookat_pos=[0, -0.5, 0],
                  up=np.array([0, 0, 1]), 
                  fov=40, w=1920, h=1080, 
                  lens_type="perspective", 
@@ -570,10 +570,26 @@ class FastSimWorld(World):
 
     def get_robot_jnts(self):
         """
-            Get real robot joint values
+            获取真实机器人关节角度
         """
 
-        pass
+        if self.robot_connect:
+            print("[Info] 机器人已连接")
+            self.real_robot_conf = self.robot_r.get_jnt_values()  # 实际机器人的关节角度(rad)
+        else:
+            print("[Info] 机器人未连接")
+            self.real_robot_conf = np.zeros(6)
+
+        for i in range(6):
+            self.slider_values[i][0].setValue(np.rad2deg(self.real_robot_conf)[i])
+
+        self.robot.fk(self.component_name, np.asarray(self.real_robot_conf))
+
+        if self.robot_meshmodel is not None:
+            self.robot_meshmodel.detach()
+
+        self.robot_meshmodel = self.robot.gen_meshmodel()
+        self.robot_meshmodel.attach_to(self)
     
 
     """
@@ -1194,6 +1210,22 @@ class FastSimWorld(World):
             self.import_model_dialog.hide()
             print("[Info] Import Model dialog closed")
 
+        # 根据导入的机器人型号设置关节限位角度
+        if 'robot' in self.model_temp:
+            robot_name = self.model_temp['robot'][0]
+            if robot_name == 'fr5':
+                self.joint_limits = [[-175,175],[-265,85],[-160,160],
+                                     [-265,85],[-175,175],[-175,175]]
+            elif robot_name == 'ur5e':
+                self.joint_limits = [[-180,180],[-180,180],[-180,180],
+                                     [-180,180],[-180,180],[-180,180]]
+            
+            for i in range(6):
+                lower_limit = self.joint_limits[i][0]
+                upper_limit = self.joint_limits[i][1]
+                self.slider_values[i][0]['range'] = (lower_limit, upper_limit)
+                self.slider_values[i][0].setRange()
+
     
     """
         TEACHING - 点位示教模块
@@ -1802,12 +1834,17 @@ class FastSimWorld(World):
                 print("[Info] No path provided!")
 
     
-    def real_robot_moving(self):
+    def real_robot_moving(self, targets):
         """
-            Moving the real robot
+            Real robot move
         """
-        
-        pass
+
+        for target in targets:
+            if target[0] == 'point':
+                self.robot_r.move_jnts(np.rad2deg(target[1]))
+            else:
+                self.robot_r.move_jnts(np.rad2deg(target[1][0]))
+                self.robot_r.move_jntspace_path(target[1])
 
 
     def edit_moving(self):
@@ -2388,6 +2425,22 @@ class FastSimWorld(World):
                 self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
                 self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
             
+                # 根据导入的机器人型号设置关节限位角度
+                if 'robot' in self.model_temp:
+                    robot_name = self.model_temp['robot'][0]
+                    if robot_name == 'fr5':
+                        self.joint_limits = [[-175,175],[-265,85],[-160,160],
+                                            [-265,85],[-175,175],[-175,175]]
+                    elif robot_name == 'ur5e':
+                        self.joint_limits = [[-180,180],[-180,180],[-180,180],
+                                            [-180,180],[-180,180],[-180,180]]
+                    
+                    for i in range(6):
+                        lower_limit = self.joint_limits[i][0]
+                        upper_limit = self.joint_limits[i][1]
+                        self.slider_values[i][0]['range'] = (lower_limit, upper_limit)
+                        self.slider_values[i][0].setRange()
+
                 # import static models
                 static_models = self.model_temp['static']
                 for static_model in static_models:
