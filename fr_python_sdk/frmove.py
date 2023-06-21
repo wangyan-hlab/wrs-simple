@@ -566,7 +566,7 @@ class FRCobot(object):
                 return # ServoJ()失败则直接结束
                 
     
-    def move_jntspace_path(self, target_pos_seq, time_period=0.008, t_wait=0.02, granularity=0.1):
+    def move_jntspace_path(self, target_pos_seq, time_period=0.008, t_wait=0.02, granularity=0.1, *kwargs):
         """
             Another name of MoveJSeq()
         """

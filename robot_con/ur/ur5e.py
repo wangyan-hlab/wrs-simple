@@ -149,7 +149,8 @@ class UR5ERtqHE():
                            max_vels=None, 
                            max_accs=None, 
                            interpolation_method=None,
-                           toggle_debug=True):
+                           toggle_debug=False,
+                           *kwargs):
         """
         move robot_s arm following a given jointspace path
         :param path:
@@ -164,7 +165,7 @@ class UR5ERtqHE():
         if interpolation_method:
             self.trajt.change_method(interpolation_method)
         # interpolated_confs, _, _, _ = self.trajt.interpolate_by_time_interval(path, control_frequency, interval_time)
-        interpolated_confs = self.trajt.interpolate_by_max_spdacc(path, control_frequency, max_vels, max_accs, toggle_debug)
+        interpolated_confs = self.trajt.interpolate_by_max_spdacc(path, control_frequency, max_vels, max_accs, toggle_debug=toggle_debug)
         # upload a urscript to connect to the pc server started by this class
         self._arm.send_program(self._pc_server_urscript)
         # accept arm socket

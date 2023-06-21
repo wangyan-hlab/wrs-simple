@@ -60,7 +60,7 @@ class FastSimWorld(World):
         self.start_end_conf = []        # saving planning start and goal points
         self.path = []                  # planned path
         self.endplanningtask = {}       # flag to stop animation
-        self.toggle_debug = True
+        self.toggle_debug = toggle_debug
 
         self.conf_meshmodel = {}        # visual robot meshmodel for previewing point confs
         self.path_meshmodel = {}        # visual robot meshmodel for previewing paths
@@ -1614,7 +1614,7 @@ class FastSimWorld(World):
                                         start_conf=start_conf,
                                         goal_conf=goal_conf,
                                         obstacle_list=obstacle_list,
-                                        ext_dist=0.05,
+                                        ext_dist=0.03,
                                         max_time=300)
             time_end = time.time()
             print("Planning time = ", time_end-time_start)
@@ -1837,9 +1837,6 @@ class FastSimWorld(World):
             else:
                 print("[Info] No path provided!")
 
-    
-    def set_toggle_debug(self, toggle_debug=True):
-        self.toggle_debug = toggle_debug
 
     def real_robot_moving(self, targets):
         """
@@ -1853,8 +1850,11 @@ class FastSimWorld(World):
             else:
                 print("[Info] 执行path")
                 self.robot_r.move_jnts(np.rad2deg(target[1][0]))
-                self.robot_r.move_jntspace_path(target[1], self.toggle_debug)
-                time.sleep(0.2*len(target[1]))
+                self.robot_r.move_jntspace_path(target[1],
+                                                max_vels=np.ones(6)*np.pi*0.2,
+                                                max_accs=np.ones(6)*np.pi*0.3,
+                                                toggle_debug=self.toggle_debug)
+                time.sleep(0.1*len(target[1]))
 
 
     def edit_moving(self):
