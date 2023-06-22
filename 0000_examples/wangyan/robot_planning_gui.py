@@ -1642,11 +1642,12 @@ class FastSimWorld(World):
             if self.goal_meshmodel is not None:
                 self.goal_meshmodel.detach()
 
-            for i in range(len(self.path)):
-                tcp_ball_name = f"plan_preview-{i}"
-                if tcp_ball_name in self.tcp_ball_meshmodel:
-                    self.tcp_ball_meshmodel[tcp_ball_name].detach()
-                    self.tcp_ball_meshmodel.pop(f"plan_preview-{i}")
+            if self.path:
+                for i in range(len(self.path)):
+                    tcp_ball_name = f"plan_preview-{i}"
+                    if tcp_ball_name in self.tcp_ball_meshmodel:
+                        self.tcp_ball_meshmodel[tcp_ball_name].detach()
+                        self.tcp_ball_meshmodel.pop(f"plan_preview-{i}")
 
             if button_value == 3:   # stop
                 print("[Info] Plan animation stopped")
