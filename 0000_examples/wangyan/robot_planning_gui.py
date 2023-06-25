@@ -1776,6 +1776,7 @@ class FastSimWorld(World):
             execute_targets = []
 
             for target_num, [target_type, target_name] in self.task_temp['targets'].items():
+                self.del_preview_task_button_clicked_moving(target_type, target_name)
                 if target_type == 'path':
                     target = self.path_temp[target_name]
                     execute_targets.append(['path', np.deg2rad(target)])
@@ -1790,10 +1791,6 @@ class FastSimWorld(World):
                     self.start_meshmodel.detach()
                 if self.goal_meshmodel is not None:
                     self.goal_meshmodel.detach()
-                
-                for tcp_ball_name in self.tcp_ball_meshmodel:
-                    self.tcp_ball_meshmodel[tcp_ball_name].detach()
-                    self.tcp_ball_meshmodel.pop(tcp_ball_name)
 
                 if real_robot:
                     print("[Info] Robot connected")
