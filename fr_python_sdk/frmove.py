@@ -2,6 +2,16 @@ import time
 import numpy as np
 from fr_python_sdk.frrpc import RPC
 
+def numpy_to_list(target):
+    """
+    功能: 将numpy.ndarray类型变量转换为SDK能够处理的list类型变量
+    """
+    target = list(target)
+    for i in range(6):
+        target[i] = float(target[i])
+    
+    return target
+
 class FRCobot(object):
     """
         FR Cobot Movement Control Wrapper
@@ -196,6 +206,8 @@ class FRCobot(object):
         """
 
         getfk_ret = self.robot.GetForwardKin(joint_pos)
+        joint_pos = numpy_to_list(joint_pos)
+
         if getfk_ret[0] != 0:
             print("[ERROR] GetForwardKin 失败,错误码:", getfk_ret[0])
             self.ResetAllError() # 尝试清除错误状态
@@ -221,6 +233,9 @@ class FRCobot(object):
         
         返回: 关节位置[j1,j2,j3,j4,j5,j6], 单位: deg
         """
+
+        desc_pos = numpy_to_list(desc_pos)
+        joint_pos_ref = numpy_to_list(joint_pos_ref)
 
         ik_has_solution = self.robot.GetInverseKinHasSolution(flag, desc_pos, joint_pos_ref)
         if ik_has_solution[0] == 0:
@@ -404,17 +419,15 @@ class FRCobot(object):
         
         if target_flag == "joint":
             target_joint_pos = target_pos
+            target_joint_pos = numpy_to_list(target_joint_pos)
             target_desc_pos = self.FK(target_joint_pos)
         elif target_flag == "desc":
             target_desc_pos = target_pos
+            target_desc_pos = numpy_to_list(target_desc_pos)
             joint_pos_ref = self.GetJointPos()
             target_joint_pos = self.IK(0, target_desc_pos, joint_pos_ref)
         else:
             raise ValueError("[WARNING] 无效的关键字")
-
-        target_joint_pos = list(target_joint_pos)
-        for i in range(6):
-            target_joint_pos[i] = float(target_joint_pos[i])
 
         movej_ret = self.robot.MoveJ(target_joint_pos, target_desc_pos, tool, user, 
                          vel, acc, ovl, exaxis_pos, blendT, offset_flag, offset_pos)
@@ -444,7 +457,7 @@ class FRCobot(object):
             Another name of MoveJ()
         """
 
-        self.MoveJ(self, target_pos, target_flag, vel, ovl, 
+        self.MoveJ(target_pos, target_flag, vel, ovl, 
                    exaxis_pos, blendT, offset_flag, offset_pos)
 
 
@@ -490,17 +503,15 @@ class FRCobot(object):
         
         if target_flag == "joint":
             target_joint_pos = target_pos
+            target_joint_pos = numpy_to_list(target_joint_pos)
             target_desc_pos = self.FK(target_joint_pos) # 计算目标位姿
         elif target_flag == "desc":
             target_desc_pos = target_pos
+            target_desc_pos = numpy_to_list(target_desc_pos)
             joint_pos_ref = self.GetJointPos()
             target_joint_pos = self.IK(0, target_desc_pos, joint_pos_ref)
         else:
             raise ValueError("[WARNING] 无效的关键字")
-
-        target_joint_pos = list(target_joint_pos)
-        for i in range(6):
-            target_joint_pos[i] = float(target_joint_pos[i])
         
         movel_ret = self.robot.MoveL(target_joint_pos, target_desc_pos, tool, user, 
                          vel, acc, ovl, blendR, exaxis_pos, search, offset_flag, offset_pos)
@@ -552,9 +563,7 @@ class FRCobot(object):
         target_pos_seq_smoothed  = np.asarray(target_pos_seq_interp).T    
 
         for index, jnt_pos in enumerate(target_pos_seq_smoothed):
-            jnt_pos = list(jnt_pos)
-            for i in range(6):
-                jnt_pos[i] = float(jnt_pos[i])
+            jnt_pos = numpy_to_list(jnt_pos)
 
             print("[INFO] ServoJ 目标关节位置:", jnt_pos)
             servoj_ret = self.robot.ServoJ(jnt_pos, acc, vel, time_period, filter_time, gain)
@@ -566,9 +575,9 @@ class FRCobot(object):
                 return # ServoJ()失败则直接结束
                 
     
-    def move_jntspace_path(self, target_pos_seq, time_period=0.008, t_wait=0.02, granularity=0.1, *kwargs):
+    def move_jntspace_path(self, target_pos_seq, time_period=0.008, t_wait=0.02, granularity=0.1, **kwargs):
         """
             Another name of MoveJSeq()
         """
 
-        self.MoveJSeq(self, np.rad2deg(target_pos_seq), time_period, t_wait, granularity)
+        self.MoveJSeq(np.rad2deg(target_pos_seq), time_period, t_wait, granularity)
