@@ -9,7 +9,6 @@ from motion.probabilistic import rrt_connect as rrtc
 from basis import robot_math as rm
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.DirectGui import *
-from panda3d.core import VirtualFileSystem as vfs
 
 
 class FastSimWorld(World):
@@ -81,8 +80,6 @@ class FastSimWorld(World):
         self.model_color_values = []
         self.model_init_pose_values = {}
         self.model_init_color_values = {}
-        
-        self.vfs = vfs.get_global_ptr()
 
         
     def start(self):

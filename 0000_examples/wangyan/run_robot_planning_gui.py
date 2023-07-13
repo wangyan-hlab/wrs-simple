@@ -1,11 +1,11 @@
 import time
 import numpy as np
-from robot_planning_gui import FastSimWorld
+from fastsim_gui import FastSimWorld
 
 
 if __name__ == "__main__":
 
-    robot_connect = True
+    robot_connect = False
     base = FastSimWorld(robot_connect=robot_connect)
     base.start()
     
