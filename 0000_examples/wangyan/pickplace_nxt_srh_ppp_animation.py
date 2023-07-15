@@ -50,7 +50,7 @@ if __name__ == '__main__':
     rrtc_s = rrtc.RRTConnect(robot_s)
     ppp_s = ppp.PickPlacePlanner(robot_s)
 
-    original_grasp_info_list = gpa.load_pickle_file('milkcarton', './', 'nextage_milkcarton.pickle')
+    original_grasp_info_list = gpa.load_pickle_file('milkcarton', './', 'srh_milkcarton.pickle')
     hnd_name = robot_s.mode
     start_conf = robot_s.get_jnt_values(hnd_name[:4]+"hnd")
     conf_list, jawwidth_list, objpose_list = \
