@@ -41,14 +41,18 @@ class ROBOT(ri.RobotInterface):
         self.manipulator_dict['hnd'] = self.arm
         self.hnd_attached = hnd_attached
         if hnd_attached:
+            self.hnd_pos = np.array([0, 0, 0])
             self.hnd_rotmat = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
-            self.hnd = rtq.Robotiq85(pos=self.arm.jnts[-1]['gl_posq'],
+            self.hnd = rtq.Robotiq85(pos=np.dot(self.arm.jnts[-1]['gl_rotmatq'], self.hnd_pos)+self.arm.jnts[-1]['gl_posq'],
                                      rotmat=np.dot(self.arm.jnts[-1]['gl_rotmatq'], self.hnd_rotmat),
                                      enable_cc=False)
             # tool center point
             self.arm.tcp_jnt_id = -1
+            self.arm.tcp_loc_pos = self.hnd_rotmat.dot(self.hnd.jaw_center_pos) + self.hnd_pos
+            self.arm.tcp_loc_rotmat = self.hnd_rotmat.dot(self.hnd.jaw_center_rotmat)
             # a list of detailed information about objects in hand, see CollisionChecker.add_objinhnd
+            self.oih_infos = []
             self.hnd_dict['arm'] = self.hnd
             self.hnd_dict['hnd'] = self.hnd
         # collision detection
@@ -230,6 +234,140 @@ class ROBOT(ri.RobotInterface):
                                           rm.rotmat_from_euler(0,0,0)))
         else:
             raise ValueError("The given component name is not available!")
+
+    def hold(self, hnd_name, objcm, jawwidth=None):
+        """
+        the objcm is added as a part of the robot_s to the cd checker
+        :param jaw_width:
+        :param objcm:
+        :return:
+        """
+        if hnd_name not in self.hnd_dict:
+            raise ValueError("Hand name does not exist!")
+        if jawwidth is not None:
+            self.hnd_dict[hnd_name].jaw_to(jawwidth)
+        # TODO “ValueError: The link needs to be added to collider using the addjlcobj function first!”
+        
+        rel_pos, rel_rotmat = self.arm.cvt_gl_to_loc_tcp(objcm.get_pos(), objcm.get_rotmat())
+        intolist = [self.arm.lnks[2],
+                    self.arm.lnks[3],
+                    self.arm.lnks[4]]
+        self.oih_infos.append(self.cc.add_cdobj(objcm, rel_pos, rel_rotmat, intolist))
+
+        return rel_pos, rel_rotmat
+    
+    def get_loc_pose_from_hio(self, hio_pos, hio_rotmat, component_name='arm'):
+        """
+        get the loc pose of an object from a grasp pose described in an object's local frame
+        :param hio_pos: a grasp pose described in an object's local frame -- pos
+        :param hio_rotmat: a grasp pose described in an object's local frame -- rotmat
+        :return:
+        author: weiwei
+        date: 20210302
+        """
+        arm = self.arm
+        hnd_pos = arm.jnts[-1]['gl_posq']
+        hnd_rotmat = arm.jnts[-1]['gl_rotmatq']
+        hnd_homomat = rm.homomat_from_posrot(hnd_pos, hnd_rotmat)
+        hio_homomat = rm.homomat_from_posrot(hio_pos, hio_rotmat)
+        oih_homomat = rm.homomat_inverse(hio_homomat)
+        gl_obj_homomat = hnd_homomat.dot(oih_homomat)
+        return self.cvt_gl_to_loc_tcp(component_name, gl_obj_homomat[:3, 3], gl_obj_homomat[:3, :3])
+
+    def get_gl_pose_from_hio(self, hio_pos, hio_rotmat, component_name='arm'):
+        """
+        get the loc pose of an object from a grasp pose described in an object's local frame
+        :param hio_pos: a grasp pose described in an object's local frame -- pos
+        :param hio_rotmat: a grasp pose described in an object's local frame -- rotmat
+        :return:
+        author: weiwei
+        date: 20210302
+        """
+        arm = self.arm
+        hnd_pos = arm.jnts[-1]['gl_posq']
+        hnd_rotmat = arm.jnts[-1]['gl_rotmatq']
+        hnd_homomat = rm.homomat_from_posrot(hnd_pos, hnd_rotmat)
+        hio_homomat = rm.homomat_from_posrot(hio_pos, hio_rotmat)
+        oih_homomat = rm.homomat_inverse(hio_homomat)
+        gl_obj_homomat = hnd_homomat.dot(oih_homomat)
+        return gl_obj_homomat[:3, 3], gl_obj_homomat[:3, :3]
+
+    def get_oih_cm_list(self, hnd_name='hnd'):
+        """
+        oih = object in hand list
+        :param hnd_name:
+        :return:
+        """
+        oih_infos = self.oih_infos
+        return_list = []
+        for obj_info in oih_infos:
+            objcm = obj_info['collisionmodel']
+            objcm.set_pos(obj_info['gl_pos'])
+            objcm.set_rotmat(obj_info['gl_rotmat'])
+            return_list.append(objcm)
+        return return_list
+
+    def get_oih_glhomomat_list(self, hnd_name='hnd'):
+        """
+        oih = object in hand list
+        :param hnd_name:
+        :return:
+        author: weiwei
+        date: 20210302
+        """
+        oih_infos = self.oih_infos
+        return_list = []
+        for obj_info in oih_infos:
+            return_list.append(rm.homomat_from_posrot(obj_info['gl_pos']), obj_info['gl_rotmat'])
+        return return_list
+
+    def get_oih_relhomomat(self, objcm, hnd_name='hnd'):
+        """
+        TODO: useless? 20210320
+        oih = object in hand list
+        :param objcm
+        :param hnd_name:
+        :return:
+        author: weiwei
+        date: 20210302
+        """
+        oih_info_list = self.oih_infos
+        for obj_info in oih_info_list:
+            if obj_info['collisionmodel'] is objcm:
+                return rm.homomat_from_posrot(obj_info['rel_pos']), obj_info['rel_rotmat']
+
+    def release(self, hnd_name, objcm, jaw_width=None):
+        """
+        the objcm is added as a part of the robot_s to the cd checker
+        :param jaw_width:
+        :param objcm:
+        :param hnd_name:
+        :return:
+        """
+        oih_infos = self.oih_infos
+        if jaw_width is not None:
+            self.jaw_to(hnd_name, jaw_width)
+        for obj_info in oih_infos:
+            if obj_info['collision_model'] is objcm:
+                self.cc.delete_cdobj(obj_info)
+                oih_infos.remove(obj_info)
+                break
+
+    def release_all(self, jaw_width=None, hnd_name='hnd'):
+        """
+        release all objects from the specified hand
+        :param jaw_width:
+        :param hnd_name:
+        :return:
+        author: weiwei
+        date: 20210125
+        """
+        oih_infos = self.oih_infos
+        if jaw_width is not None:
+            self.jaw_to(hnd_name, jaw_width)
+        for obj_info in oih_infos:
+            self.cc.delete_cdobj(obj_info)
+        oih_infos.clear()
 
     def gen_meshmodel(self,
                       tcp_jnt_id=None,

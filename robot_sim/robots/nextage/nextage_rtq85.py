@@ -652,9 +652,9 @@ class Nextage(ri.RobotInterface):
                         self.rgt_arm.lnks[4],
                         self.rgt_arm.lnks[5],
                         self.rgt_arm.lnks[6],
-                        self.rgt_hnd.lft.lnks[0],
-                        self.rgt_hnd.lft.lnks[2],
-                        self.rgt_hnd.rgt.lnks[2]]
+                        self.rgt_hnd.lft_outer.lnks[0],
+                        self.rgt_hnd.lft_outer.lnks[2],
+                        self.rgt_hnd.rgt_outer.lnks[2]]
             self.lft_oih_infos.append(self.cc.add_cdobj(objcm, rel_pos, rel_rotmat, intolist))
 
             rel_pos, rel_rotmat = self.rgt_arm.cvt_gl_to_loc_tcp(objcm.get_pos(), objcm.get_rotmat())
