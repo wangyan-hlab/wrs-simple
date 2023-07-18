@@ -4,7 +4,7 @@ setup(
     name="wrspkg",
     version="0.1.0",
     description="wrs packages",
-    author="Weiwei Wan",
+    author="Weiwei Wan, Yan Wang",
     py_modules=[
         'basis.*',
         'drivers.*',
@@ -13,10 +13,8 @@ setup(
         'manipulation.*',
         'modeling.*',
         'motion.*',
-        'neuro.*',
         'robot_con.*',
         'robot_sim.*',
-        'vision.*',
         'visualization.*',
         'fr_python_sdk.*'
     ]
