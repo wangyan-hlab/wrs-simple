@@ -1,6 +1,7 @@
 import time
 import numpy as np
-from fastsim_gui import FastSimWorld
+# from fastsim_gui_en import FastSimWorld
+from fastsim_gui_zh import FastSimWorld
 
 
 if __name__ == "__main__":
