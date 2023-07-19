@@ -28,13 +28,13 @@ class GraspWorld(wd.World):
         # global obgl_start_homomat, milkcarton_copy
         self.obgl_start_homomat = obj_bd_box.get_homomat()
         self.milkcarton_copy = milkcarton.copy()
-        # print("**********", self.obgl_start_homomat)
+        print("obgl_start_homomat =", self.obgl_start_homomat)
         self.milkcarton_copy.set_rgba([1, 0, 0, .4])
         self.milkcarton_copy.set_homomat(self.obgl_start_homomat)
-        return task.cont
+        return task.done
 
     def click_get_obj_homomat(self):
-        taskMgr.doMethodLater(1.0, self.get_obj_homomat, "get_obj_homomat",
+        taskMgr.doMethodLater(0.01, self.get_obj_homomat, "get_obj_homomat",
                                 extraArgs=[milkcarton_bd_box, milkcarton],
                                 appendTask=True)
 
