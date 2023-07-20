@@ -10,7 +10,8 @@ import robot_sim.end_effectors.gripper.robotiq85.robotiq85 as hnd
 base = wd.World(cam_pos=[1, 1, 1], lookat_pos=[0, 0, 0])
 gm.gen_frame().attach_to(base)
 # object
-obj = cm.CollisionModel("../objects/milkcarton.stl")
+obj_name = 'milkcarton'
+obj = cm.CollisionModel(f"../objects/{obj_name}.stl")
 obj.set_rgba([.9, .75, .35, 1])
 obj.set_scale([.4, .4, .4])
 obj.attach_to(base)
@@ -29,7 +30,7 @@ grasp_info_list = gau.define_grasp_with_rotation(gripper_s,
                                                  jaw_width=0.0324,
                                                  gl_rotation_ax=np.array([0,1,0]),
                                                  rotation_interval=np.radians(5))
-gpa.write_pickle_file('milkcarton', grasp_info_list, './', 'rtq85_milkcarton.pickle')
+gpa.write_pickle_file(obj_name, grasp_info_list, './', f'rtq85_{obj_name}.pickle')
 for grasp_info in grasp_info_list:
     jaw_width, gl_jaw_center, gl_jaw_rotmat, hnd_pos, hnd_rotmat = grasp_info
     gripper_s.jaw_to(jaw_width)
