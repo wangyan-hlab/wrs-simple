@@ -3,15 +3,13 @@ import modeling.dynamics.bullet.bdmodel as bdm
 import modeling.geometric_model as gm
 import modeling.collision_model as cm
 import grasping.planning.antipodal as gpa
-import math
-import time
-import pickle
 from direct.gui.DirectGui import *
 import numpy as np
 import basis.robot_math as rm
 import robot_sim.robots.fr5.fr5_rtq85 as fr5
 import manipulation.pick_place_planner as ppp
 import motion.probabilistic.rrt_connect as rrtc
+from panda3d.core import TextNode
 
 
 class GraspWorld(wd.World):
@@ -23,6 +21,8 @@ class GraspWorld(wd.World):
         milkcarton_gl_goal_rotmat = rm.rotmat_from_euler(0, 0, 0)
         self.obgl_goal_homomat = rm.homomat_from_posrot(milkcarton_gl_goal_pos, milkcarton_gl_goal_rotmat)
         self.milkcarton_copy = None
+        self.chinese_font = loader.loadFont("msyh.ttf")
+        TextNode.setDefaultFont(self.chinese_font)
 
     def get_obj_homomat(self, obj_bd_box, milkcarton, task):    
         # global obgl_start_homomat, milkcarton_copy
@@ -57,7 +57,7 @@ class GraspWorld(wd.World):
         """
             Creating button widgets
         """
-        DirectButton(text="Get Object Pose",
+        DirectButton(text="获取物体位姿",
                     text_pos=(0, -0.4),
                     command=self.click_get_obj_homomat,
                     scale=(0.04, 0.04, 0.04),
@@ -65,7 +65,7 @@ class GraspWorld(wd.World):
                     pos=(-0.7, 0, 0.2),
                     parent=self.frame_middle)
     
-        DirectButton(text="Plan Grasping",
+        DirectButton(text="抓取避障规划",
                     text_pos=(0, -0.4),
                     command=self.grasp_planning,
                     scale=(0.04, 0.04, 0.04),
@@ -90,9 +90,9 @@ class GraspWorld(wd.World):
                                             end_conf=start_conf,
                                             goal_homomat_list=[self.obgl_start_homomat, self.obgl_goal_homomat],
                                             approach_direction_list=[np.array([0, 0, -1]), np.array([0, 0, -1])],
-                                            approach_distance_list=[.3] * 2,
+                                            approach_distance_list=[.05] * 2,
                                             depart_direction_list=[np.array([0, 0, 1]), np.array([0, 0, 1])],
-                                            depart_distance_list=[.3] * 2,
+                                            depart_distance_list=[.05] * 2,
                                             obstacle_list=[obj])
     
         robot_attached_list = []
@@ -124,6 +124,9 @@ class GraspWorld(wd.World):
             robot_meshmodel = robot_s.gen_meshmodel(toggle_tcpcs=True)
             robot_meshmodel.attach_to(base)
             robot_attached_list.append(robot_meshmodel)
+            tcp_ball = gm.gen_sphere(pos=robot_s.get_gl_tcp('arm')[0], 
+                                    radius=0.01, rgba=[1, 1, 0, 1])
+            tcp_ball.attach_to(base)
             obj_pose = obj_path[counter[0]]
             objb_copy = milkcarton.copy()
             objb_copy.set_rgba([.9, .75, .35, 1])
@@ -179,14 +182,14 @@ if __name__ == '__main__':
     milkcarton_goal_copy.set_homomat(base.obgl_goal_homomat)
     milkcarton_goal_copy.attach_to(base)
 
-    robot_s = fr5.ROBOT(homeconf=np.radians([-40,-80,30,10,45,90]))
+    robot_s = fr5.ROBOT(homeconf=np.radians([-40,-120,120,0,90,-90]))
     robot_s.gen_meshmodel(rgba=[1, 0, 1, .3]).attach_to(base)
 
     # obstacle
     obj = cm.CollisionModel("../objects/bunnysim.stl")
-    obj.set_pos(np.array([0.4, 0.22, 0.55]))
-    obj.set_rpy(0, 0, 1.57)
-    obj.set_scale([.5, .5, .5])
+    obj.set_pos(np.array([0.4, 0.22, 0.35]))
+    obj.set_rpy(0, 0, 0)
+    obj.set_scale([1.0, 1.0, 1.0])
     obj.set_rgba([.1, .2, .8, 1])
     obj.attach_to(base)
 
