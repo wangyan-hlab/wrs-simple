@@ -1549,7 +1549,7 @@ class FastSimWorld(World):
         self.plan_dialog = DirectDialog(dialogName='路径规划',
                                         pos=(0.4, 0, -0.2),
                                         scale=(0.4, 0.4, 0.4),
-                                        buttonTextList=['预览', '规划', '停止预览', '记录', '取消'],
+                                        buttonTextList=['点位预览', '路径规划', '停止动画', '记录', '取消'],
                                         buttonValueList=[1, 2, 3, 4, 0],
                                         frameSize=(-1.0, 1.0, 0, 1.0),
                                         frameColor=(0.8, 0.8, 0.8, 0.9),
