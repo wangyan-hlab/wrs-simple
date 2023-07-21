@@ -6,7 +6,8 @@ import grasping.planning.antipodal as gpa
 from direct.gui.DirectGui import *
 import numpy as np
 import basis.robot_math as rm
-import robot_sim.robots.fr5.fr5_rtq85 as fr5
+# import robot_sim.robots.fr5.fr5_rtq85 as frrobot
+import robot_sim.robots.fr3.fr3_rtq85 as frrobot
 import manipulation.pick_place_planner as ppp
 import motion.probabilistic.rrt_connect as rrtc
 from panda3d.core import TextNode
@@ -182,7 +183,7 @@ if __name__ == '__main__':
     milkcarton_goal_copy.set_homomat(base.obgl_goal_homomat)
     milkcarton_goal_copy.attach_to(base)
 
-    robot_s = fr5.ROBOT(homeconf=np.radians([-40,-120,120,0,90,-90]))
+    robot_s = frrobot.ROBOT(homeconf=np.radians([-40,-120,120,0,90,-90]))
     robot_s.gen_meshmodel(rgba=[1, 0, 1, .3]).attach_to(base)
 
     # obstacle
