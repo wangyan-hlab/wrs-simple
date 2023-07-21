@@ -1052,17 +1052,26 @@ class FastSimWorld(World):
                                 print("[Info] 机器人未连接")
                                 self.init_conf = np.zeros(6)
 
-                        elif robot_model == 'fr5':
-                            from robot_sim.robots.fr5 import fr5
-                            from fr_python_sdk.frmove import FRCobot as fr5_real
+                        elif robot_model[:2] == 'fr':
+                            from fr_python_sdk.frmove import FRCobot as fr_real
+                            if robot_model[2:] == '3':
+                                from robot_sim.robots.fr3 import fr3 as fr    
+                            elif robot_model[2:] == '5':
+                                from robot_sim.robots.fr5 import fr5 as fr
+                            elif robot_model[2:] == '10':
+                                from robot_sim.robots.fr10 import fr10 as fr
+                            elif robot_model[2:] == '16':
+                                from robot_sim.robots.fr16 import fr16 as fr
+                            elif robot_model[2:] == '20':
+                                from robot_sim.robots.fr20 import fr20 as fr
 
-                            robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                            robot_s = fr.ROBOT(enable_cc=True, peg_attached=False, 
                                                 pos=robot_pos, rotmat=robot_rotmat,
                                                 zrot_to_gndbase=0)
                             component = 'arm'
                             if self.robot_connect:
                                 print("[Info] 机器人已连接")
-                                self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                                self.robot_r = fr_real(robot_ip=self.robot_ip)
                                 self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
                             else:
                                 print("[Info] 机器人未连接")
@@ -1144,17 +1153,26 @@ class FastSimWorld(World):
                             print("[Info] 机器人未连接")
                             self.init_conf = np.zeros(6)
 
-                    elif robot_model == 'fr5':
-                        from robot_sim.robots.fr5 import fr5
-                        from fr_python_sdk.frmove import FRCobot as fr5_real
+                    elif robot_model[:2] == 'fr':
+                        from fr_python_sdk.frmove import FRCobot as fr_real
+                        if robot_model[2:] == '3':
+                            from robot_sim.robots.fr3 import fr3 as fr    
+                        elif robot_model[2:] == '5':
+                            from robot_sim.robots.fr5 import fr5 as fr
+                        elif robot_model[2:] == '10':
+                            from robot_sim.robots.fr10 import fr10 as fr
+                        elif robot_model[2:] == '16':
+                            from robot_sim.robots.fr16 import fr16 as fr
+                        elif robot_model[2:] == '20':
+                            from robot_sim.robots.fr20 import fr20 as fr
 
-                        robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                        robot_s = fr.ROBOT(enable_cc=True, peg_attached=False, 
                                             pos=robot_pos, rotmat=robot_rotmat,
-                                            zrot_to_gndbase=0)
+                                                zrot_to_gndbase=0)
                         component = 'arm'
                         if self.robot_connect:
                             print("[Info] 机器人已连接")
-                            self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                            self.robot_r = fr_real(robot_ip=self.robot_ip)
                             self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
                         else:
                             print("[Info] 机器人未连接")
@@ -1215,7 +1233,7 @@ class FastSimWorld(World):
         # 根据导入的机器人型号设置关节限位角度
         if 'robot' in self.model_temp:
             robot_name = self.model_temp['robot'][0]
-            if robot_name == 'fr5':
+            if robot_name[:2] == 'fr':
                 self.joint_limits = [[-175,175],[-265,85],[-160,160],
                                      [-265,85],[-175,175],[-175,175]]
             elif robot_name == 'ur5e':
@@ -2412,17 +2430,26 @@ class FastSimWorld(World):
                         print("[Info] 机器人未连接")
                         self.init_conf = np.zeros(6)
 
-                elif robot_model == 'fr5':
-                    from robot_sim.robots.fr5 import fr5
-                    from fr_python_sdk.frmove import FRCobot as fr5_real
+                elif robot_model[:2] == 'fr':
+                    from fr_python_sdk.frmove import FRCobot as fr_real
+                    if robot_model[2:] == '3':
+                        from robot_sim.robots.fr3 import fr3 as fr    
+                    elif robot_model[2:] == '5':
+                        from robot_sim.robots.fr5 import fr5 as fr
+                    elif robot_model[2:] == '10':
+                        from robot_sim.robots.fr10 import fr10 as fr
+                    elif robot_model[2:] == '16':
+                        from robot_sim.robots.fr16 import fr16 as fr
+                    elif robot_model[2:] == '20':
+                        from robot_sim.robots.fr20 import fr20 as fr
 
-                    robot_s = fr5.ROBOT(enable_cc=True, peg_attached=False, 
+                    robot_s = fr.ROBOT(enable_cc=True, peg_attached=False, 
                                         pos=robot_pos, rotmat=robot_rotmat,
                                         zrot_to_gndbase=0)
                     component = 'arm'
                     if self.robot_connect:
                         print("[Info] 机器人已连接")
-                        self.robot_r = fr5_real(robot_ip=self.robot_ip)
+                        self.robot_r = fr_real(robot_ip=self.robot_ip)
                         self.init_conf = self.robot_r.GetJointPos(unit="rad")  # 实际机器人的初始关节角度
                     else:
                         print("[Info] 机器人未连接")
@@ -2434,7 +2461,7 @@ class FastSimWorld(World):
                 # 根据导入的机器人型号设置关节限位角度
                 if 'robot' in self.model_temp:
                     robot_name = self.model_temp['robot'][0]
-                    if robot_name == 'fr5':
+                    if robot_name[:2] == 'fr':
                         self.joint_limits = [[-175,175],[-265,85],[-160,160],
                                             [-265,85],[-175,175],[-175,175]]
                     elif robot_name == 'ur5e':
