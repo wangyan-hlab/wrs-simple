@@ -10,6 +10,7 @@ from basis import robot_math as rm
 from direct.gui.OnscreenText import OnscreenText
 from direct.gui.DirectGui import *
 from panda3d.core import TextNode
+import importlib
 
 class FastSimWorld(World):
     """
@@ -29,7 +30,8 @@ class FastSimWorld(World):
                  auto_cam_rotate=False, 
                  backgroundcolor=None,
                  robot_connect=False,
-                 init_conf=np.zeros(6)):
+                 init_conf=np.zeros(6),
+                 language='zh'):
         super().__init__(cam_pos, 
                          lookat_pos, 
                          up, 
@@ -41,6 +43,7 @@ class FastSimWorld(World):
 
         gm.gen_frame().attach_to(self)  # attach a world frame
 
+        self.language = language
         self.robot_ip = '192.168.58.2'
         self.pc_ip = '192.168.58.70'
         self.robot_connect = robot_connect
@@ -141,7 +144,7 @@ class FastSimWorld(World):
             Creating button widgets
         """
 
-        DirectButton(text="获取关节角度",
+        DirectButton(text="获取关节角度" if self.language=='zh' else "Get Joint Values",
                     text_pos=(0, -0.4),
                     command=self.get_robot_jnts,
                     scale=(0.04, 0.04, 0.04),
@@ -149,7 +152,7 @@ class FastSimWorld(World):
                     pos=(-0.7, 0, 0.2),
                     parent=self.frame_middle)
         
-        DirectButton(text="记录点位",
+        DirectButton(text="记录点位" if self.language=='zh' else "Record",
                     text_pos=(0, -0.4),
                     command=self.record_teaching,
                     scale=(0.04, 0.04, 0.04),
@@ -158,7 +161,7 @@ class FastSimWorld(World):
                     parent=self.frame_middle)
         
         self.plan_button = DirectButton(
-                    text="规划路径",
+                    text="规划路径" if self.language=='zh' else "Plan",
                     text_pos=(0, -0.4),
                     command=self.plan_moving,
                     scale=(0.04, 0.04, 0.04),
@@ -167,7 +170,7 @@ class FastSimWorld(World):
                     parent=self.frame_middle)
         
         self.execute_button = DirectButton(
-                    text="执行任务",
+                    text="执行任务" if self.language=='zh' else "Execute",
                     text_pos=(0, -0.4), 
                     command=lambda: self.execute_moving(self.robot_connect),
                     scale=(0.04, 0.04, 0.04),
@@ -181,13 +184,13 @@ class FastSimWorld(World):
             Creating option menu widgets
         """
 
-        DirectLabel(text="坐标系",
+        DirectLabel(text="坐标系" if self.language=='zh' else "Frame",
                     scale=0.04,
                     pos=(-0.85, 0, 0.9),
                     parent=self.frame_cartesian,
                     frameColor=(1, 1, 1, 0.1))
         
-        options = ["基坐标系", "工具坐标系"]
+        options = ["基坐标系", "工具坐标系"] if self.language=='zh' else ["Base", "Tool"]
         self.option_menu = DirectOptionMenu(
                     text_pos=(1, -0.4),
                     scale=(0.04, 0.04, 0.04),
@@ -212,7 +215,7 @@ class FastSimWorld(World):
 
         for i in range(6):
 
-            DirectLabel(text="关节 {}".format(i+1),
+            DirectLabel(text=f"关节 {i+1}" if self.language=='zh' else f"Joint {i+1}",
                         scale=0.035,
                         pos=(-0.9, 0, -0.1 - i * 0.1),
                         parent=self.frame_joint,
@@ -340,7 +343,7 @@ class FastSimWorld(World):
                         parent=self.frame_cartesian,
                         frameColor=(1, 1, 1, 1))
             
-            DirectLabel(text="TCP位姿",
+            DirectLabel(text="TCP位姿" if self.language=='zh' else "TCP Pose",
                         scale=0.035,
                         pos=(-0.85, 0, 0.19),
                         parent=self.frame_cartesian,
@@ -375,10 +378,10 @@ class FastSimWorld(World):
         
         self.robot_frame = self.option_menu.get()
 
-        if self.robot_frame == '基坐标系':
+        if self.robot_frame == '基坐标系' or 'Base':
             new_tcp_pos = cur_tcp_pos + rel_pos
             new_tcp_rotmat = rel_rotmat.dot(cur_tcp_rotmat)
-        elif self.robot_frame == '工具坐标系':
+        elif self.robot_frame == '工具坐标系' or 'Tool':
             rel_homomat = rm.homomat_from_posrot(rel_pos, rel_rotmat)
             cur_tcp_homomat = rm.homomat_from_posrot(cur_tcp_pos, cur_tcp_rotmat)
             new_tcp_homomat = cur_tcp_homomat.dot(rel_homomat)
@@ -401,7 +404,7 @@ class FastSimWorld(World):
             Create the Model Manager menu
         """
 
-        DirectLabel(text="模型管理器",
+        DirectLabel(text="模型管理器" if self.language=='zh' else "Model Manager",
                     scale=0.04,
                     pos=(0.15, 0, 0.32),
                     parent=self.frame_manager,
@@ -414,7 +417,7 @@ class FastSimWorld(World):
                     sortOrder=1,
                     parent=self.frame_manager)
         
-        DirectButton(text="编辑",
+        DirectButton(text="编辑" if self.language=='zh' else "Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
@@ -422,7 +425,7 @@ class FastSimWorld(World):
                     command=self.edit_modeling,
                     parent=self.model_mgr_menu_frame)
         
-        DirectButton(text="导出",
+        DirectButton(text="导出" if self.language=='zh' else "Export",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.16),
@@ -430,7 +433,7 @@ class FastSimWorld(World):
                     command=self.save_modeling,
                     parent=self.model_mgr_menu_frame)
         
-        DirectButton(text="导入",
+        DirectButton(text="导入" if self.language=='zh' else "Import",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.07),
@@ -444,7 +447,7 @@ class FastSimWorld(World):
             Create the Path Manager menu
         """
 
-        DirectLabel(text="路径管理器",
+        DirectLabel(text="路径管理器" if self.language=='zh' else "Path Manager",
                     scale=0.04,
                     pos=(0.47, 0, 0.32),
                     parent=self.frame_manager,
@@ -457,7 +460,7 @@ class FastSimWorld(World):
                     sortOrder=1,
                     parent=self.frame_manager)
         
-        DirectButton(text="编辑",
+        DirectButton(text="编辑" if self.language=='zh' else "Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
@@ -465,7 +468,7 @@ class FastSimWorld(World):
                     command=self.edit_moving,
                     parent=self.path_mgr_menu_frame)
         
-        DirectButton(text="导出",
+        DirectButton(text="导出" if self.language=='zh' else "Export",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.16),
@@ -473,7 +476,7 @@ class FastSimWorld(World):
                     command=self.save_moving,
                     parent=self.path_mgr_menu_frame)
         
-        DirectButton(text="导入",
+        DirectButton(text="导入" if self.language=='zh' else "Import",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.07),
@@ -487,7 +490,7 @@ class FastSimWorld(World):
             Create the Point Manager menu
         """
 
-        DirectLabel(text="点位管理器",
+        DirectLabel(text="点位管理器" if self.language=='zh' else "Point Manager",
                     scale=0.04,
                     pos=(0.79, 0, 0.32),
                     parent=self.frame_manager,
@@ -500,7 +503,7 @@ class FastSimWorld(World):
                     sortOrder=1,
                     parent=self.frame_manager)
         
-        DirectButton(text="编辑",
+        DirectButton(text="编辑" if self.language=='zh' else "Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
@@ -508,7 +511,7 @@ class FastSimWorld(World):
                     command=self.edit_teaching,
                     parent=self.point_mgr_menu_frame)
         
-        DirectButton(text="导出",
+        DirectButton(text="导出" if self.language=='zh' else "Export",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.16),
@@ -516,7 +519,7 @@ class FastSimWorld(World):
                     command=self.save_teaching,
                     parent=self.point_mgr_menu_frame)
         
-        DirectButton(text="导入",
+        DirectButton(text="导入" if self.language=='zh' else "Import",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.07),
@@ -530,7 +533,7 @@ class FastSimWorld(World):
             Create the Task Manager menu
         """
 
-        DirectLabel(text="任务管理器",
+        DirectLabel(text="任务管理器" if self.language=='zh' else "Task Manager",
                     scale=0.04,
                     pos=(1.11, 0, 0.32),
                     parent=self.frame_manager,
@@ -542,7 +545,7 @@ class FastSimWorld(World):
                     sortOrder=1,
                     parent=self.frame_manager)
         
-        DirectButton(text="编辑",
+        DirectButton(text="编辑" if self.language=='zh' else "Edit",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.25),
@@ -550,7 +553,7 @@ class FastSimWorld(World):
                     command=self.edit_task,
                     parent=self.task_mgr_menu_frame)
         
-        DirectButton(text="导出",
+        DirectButton(text="导出" if self.language=='zh' else "Export",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.16),
@@ -558,7 +561,7 @@ class FastSimWorld(World):
                     command=self.save_task,
                     parent=self.task_mgr_menu_frame)
         
-        DirectButton(text="导入",
+        DirectButton(text="导入" if self.language=='zh' else "Import",
                     text_pos=(2, -0.2),
                     scale=(0.04, 0.04, 0.04),
                     pos=(0.05, 0, 0.07),
@@ -670,10 +673,10 @@ class FastSimWorld(World):
         self.edit_modeling_checkbox_values = []
 
         self.edit_model_dialog = DirectDialog(
-                    dialogName='编辑模型',
+                    dialogName='编辑模型' if self.language=='zh' else "Edit Models",
                     pos=(-0.5, 0, -0.2),
                     scale=(0.4, 0.4, 0.4),
-                    buttonTextList=['移除', '关闭'],
+                    buttonTextList=['移除', '关闭'] if self.language=='zh' else ['Remove', 'Close'],
                     buttonValueList=[1, 0],
                     frameSize=(-1.5,1.5,-0.1-0.1*len(self.model_temp),1),
                     frameColor=(0.8,0.8,0.8,0.9),
@@ -683,17 +686,17 @@ class FastSimWorld(World):
         self.edit_model_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.model_temp)))
         self.edit_model_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.model_temp)))
 
-        DirectLabel(text="模型名称", 
+        DirectLabel(text="模型名称" if self.language=='zh' else "Model Name", 
                     pos=(-1.0, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_model_dialog)
         
-        DirectLabel(text="设置位姿/颜色", 
+        DirectLabel(text="设置位姿/颜色" if self.language=='zh' else "Set Pose/Color", 
                     pos=(0.2, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_model_dialog)
         
-        DirectLabel(text="移除",
+        DirectLabel(text="移除" if self.language=='zh' else "Remove",
                     pos=(1.0, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_model_dialog)
@@ -719,7 +722,7 @@ class FastSimWorld(World):
                                 parent=self.edit_model_dialog)
                 
                 edit_pose_color_button = DirectButton(
-                                text="设置",
+                                text="设置" if self.language=='zh' else "Set",
                                 text_pos=(0, -0.4),
                                 pos=(0.2, 0, 0.62-i*0.15),
                                 scale=0.07,
@@ -748,7 +751,7 @@ class FastSimWorld(World):
         self.model_color_values = []
 
         self.pose_color_dialog = DirectDialog(pos=(-0.5, 0, -0.5-0.15*index),
-                                    buttonTextList=['确认', '关闭'],
+                                    buttonTextList=['确认', '关闭'] if self.language=='zh' else ['OK', 'Close'],
                                     buttonValueList=[1, 0],
                                     frameSize=(-1.0, 1.0, -0.5, 1.0),
                                     frameColor=(0.8,0.8,0.8,0.9),
@@ -759,7 +762,7 @@ class FastSimWorld(World):
         self.pose_color_dialog.buttonList[0].setPos((0.6, 0, -0.4))
         self.pose_color_dialog.buttonList[1].setPos((0.8, 0, -0.4))
 
-        DirectLabel(text="模型位姿/颜色",
+        DirectLabel(text="模型位姿/颜色" if self.language=='zh' else "Model Pose / Color",
                     pos=(-0.6, 0, 0.8),
                     scale=0.07,
                     parent=self.pose_color_dialog)
@@ -785,7 +788,7 @@ class FastSimWorld(World):
                         parent=self.pose_color_dialog)
             self.model_pose_values.append(pose_entry)
         # color parameters
-        color_params = ['R','G','B','不透明度']
+        color_params = ['R','G','B','不透明度'] if self.language=='zh' else ['R','G','B','Alpha']
         if model_type != 'robot':
             for i in range(4):
                 DirectLabel(text=color_params[i],
@@ -964,7 +967,7 @@ class FastSimWorld(World):
 
         root = tk.Tk()
         root.withdraw()
-        model_filepath = filedialog.asksaveasfilename(title=title,
+        model_filepath = filedialog.asksaveasfilename(title=title if self.language=='zh' else 'Save Models',
                                                 initialdir="./config/models",
                                                 initialfile='Untitled.yaml',
                                                 defaultextension=".yaml",
@@ -986,10 +989,10 @@ class FastSimWorld(World):
 
         print("[Info] importing models")
 
-        self.import_model_dialog = DirectDialog(dialogName='导入模型',
-                              text='导入模型:',
+        self.import_model_dialog = DirectDialog(dialogName='导入模型' if self.language=='zh' else 'Import Models',
+                              text='导入模型:' if self.language=='zh' else 'Import models from:',
                               scale=(0.7, 0.7, 0.7),
-                              buttonTextList=['从YAML文件', '机器人模型', '其他模型', '取消'],
+                              buttonTextList=['从YAML文件', '机器人模型', '其他模型', '取消'] if self.language=='zh' else ['YAML File', 'Robot Model', 'Other Models', 'Cancel'],
                               buttonValueList=[1, 2, 3, 0],
                               command=self.import_model_dialog_button_clicked_modeling)
 
@@ -1035,14 +1038,21 @@ class FastSimWorld(World):
                         robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
                                                             robot_model_pose[4],
                                                             robot_model_pose[5])
-                        if robot_model == 'ur5e':
-                            from robot_sim.robots.ur5e import ur5e
-                            from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
-
-                            robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
+                        
+                        try:
+                            module_name = f"robot_sim.robots.{robot_model}"
+                            module = importlib.import_module(module_name)
+                            print(f"Import {robot_model} ...")
+                            # 现在你可以使用 robot_class 进行后续操作，比如实例化对象等
+                            robot_class = getattr(module, 'ROBOT')
+                            robot_s = robot_class(enable_cc=True, hnd_attached=False, 
                                                 pos=robot_pos, rotmat=robot_rotmat)
-                            component = 'arm'
 
+                        except ImportError:
+                            print(f"Failed to import {robot_model}.")
+
+                        if robot_model == 'ur5e.ur5e':
+                            from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
                             if self.robot_connect:
                                 print("[Info] 机器人已连接")
                                 self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
@@ -1054,21 +1064,6 @@ class FastSimWorld(World):
 
                         elif robot_model[:2] == 'fr':
                             from fr_python_sdk.frmove import FRCobot as fr_real
-                            if robot_model[2:] == '3':
-                                from robot_sim.robots.fr3 import fr3 as fr    
-                            elif robot_model[2:] == '5':
-                                from robot_sim.robots.fr5 import fr5 as fr
-                            elif robot_model[2:] == '10':
-                                from robot_sim.robots.fr10 import fr10 as fr
-                            elif robot_model[2:] == '16':
-                                from robot_sim.robots.fr16 import fr16 as fr
-                            elif robot_model[2:] == '20':
-                                from robot_sim.robots.fr20 import fr20 as fr
-
-                            robot_s = fr.ROBOT(enable_cc=True, peg_attached=False, 
-                                                pos=robot_pos, rotmat=robot_rotmat,
-                                                zrot_to_gndbase=0)
-                            component = 'arm'
                             if self.robot_connect:
                                 print("[Info] 机器人已连接")
                                 self.robot_r = fr_real(robot_ip=self.robot_ip)
@@ -1078,6 +1073,7 @@ class FastSimWorld(World):
                                 self.init_conf = np.zeros(6)
 
                         self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                        component = 'arm'
                         self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
                 
                     # import static models
@@ -1136,14 +1132,20 @@ class FastSimWorld(World):
                                                         robot_model_pose[4],
                                                         robot_model_pose[5])
                     
-                    if robot_model == 'ur5e':
-                        from robot_sim.robots.ur5e import ur5e
-                        from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
-
-                        robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False,
+                    try:
+                        module_name = f"robot_sim.robots.{robot_model}"
+                        module = importlib.import_module(module_name)
+                        print(f"Import {robot_model} ...")
+                        # 现在你可以使用 robot_class 进行后续操作，比如实例化对象等
+                        robot_class = getattr(module, 'ROBOT')
+                        robot_s = robot_class(enable_cc=True, hnd_attached=False, 
                                             pos=robot_pos, rotmat=robot_rotmat)
-                        component = 'arm'
 
+                    except ImportError:
+                        print(f"Failed to import {robot_model}.")
+
+                    if robot_model == 'ur5e.ur5e':
+                        from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
                         if self.robot_connect:
                             print("[Info] 机器人已连接")
                             self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
@@ -1155,21 +1157,6 @@ class FastSimWorld(World):
 
                     elif robot_model[:2] == 'fr':
                         from fr_python_sdk.frmove import FRCobot as fr_real
-                        if robot_model[2:] == '3':
-                            from robot_sim.robots.fr3 import fr3 as fr    
-                        elif robot_model[2:] == '5':
-                            from robot_sim.robots.fr5 import fr5 as fr
-                        elif robot_model[2:] == '10':
-                            from robot_sim.robots.fr10 import fr10 as fr
-                        elif robot_model[2:] == '16':
-                            from robot_sim.robots.fr16 import fr16 as fr
-                        elif robot_model[2:] == '20':
-                            from robot_sim.robots.fr20 import fr20 as fr
-
-                        robot_s = fr.ROBOT(enable_cc=True, peg_attached=False, 
-                                            pos=robot_pos, rotmat=robot_rotmat,
-                                                zrot_to_gndbase=0)
-                        component = 'arm'
                         if self.robot_connect:
                             print("[Info] 机器人已连接")
                             self.robot_r = fr_real(robot_ip=self.robot_ip)
@@ -1179,6 +1166,7 @@ class FastSimWorld(World):
                             self.init_conf = np.zeros(6)
 
                     self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                    component = 'arm'
                     self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
 
             self.import_model_dialog.hide()
@@ -1317,10 +1305,10 @@ class FastSimWorld(World):
 
         print("[Info] recording point")
 
-        self.record_point_dialog = DirectDialog(dialogName='记录点位',
-                              text='输入点位名称:',
+        self.record_point_dialog = DirectDialog(dialogName='记录点位' if self.language=='zh' else 'Record Point',
+                              text='输入点位名称:' if self.language=='zh' else 'Enter the point name:',
                               scale=(0.7, 0.7, 0.7),
-                              buttonTextList=['确认', '取消'],
+                              buttonTextList=['确认', '取消'] if self.language=='zh' else ['OK', 'Cancel'],
                               buttonValueList=[1, 0],
                               command=self.record_point_dialog_button_clicked_teaching)
 
@@ -1363,10 +1351,10 @@ class FastSimWorld(World):
 
         self.edit_point_checkbox_values = []
 
-        self.edit_point_dialog = DirectDialog(dialogName='编辑点位',
+        self.edit_point_dialog = DirectDialog(dialogName='编辑点位' if self.language=='zh' else 'Edit Points',
                                             pos=(-0.5, 0, -0.2),
                                             scale=(0.4, 0.4, 0.4),
-                                            buttonTextList=['移除', '关闭'],
+                                            buttonTextList=['移除', '关闭'] if self.language=='zh' else ['Remove', 'Close'],
                                             buttonValueList=[1, 0],
                                             frameSize=(-1.5,1.5,-0.1-0.1*len(self.point_temp),1),
                                             frameColor=(0.8,0.8,0.8,0.9),
@@ -1376,22 +1364,22 @@ class FastSimWorld(World):
         self.edit_point_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.point_temp)))
         self.edit_point_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.point_temp)))
 
-        DirectLabel(text="点位名称", 
+        DirectLabel(text="点位名称" if self.language=='zh' else "Point Name", 
                     pos=(-1.3, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
-        DirectLabel(text="关节角度(deg)", 
+        DirectLabel(text="关节角度(deg)" if self.language=='zh' else "Joint Values(deg)", 
                     pos=(-0.2, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
-        DirectLabel(text="预览", 
+        DirectLabel(text="预览" if self.language=='zh' else "Preview", 
                     pos=(0.9, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_point_dialog)
         
-        DirectLabel(text="移除", 
+        DirectLabel(text="移除" if self.language=='zh' else "Remove", 
                     pos=(1.3, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_point_dialog)
@@ -1407,7 +1395,7 @@ class FastSimWorld(World):
                         scale=0.07, 
                         parent=self.edit_point_dialog)
             
-            DirectButton(text="预览",
+            DirectButton(text="预览" if self.language=='zh' else "Preview",
                          text_pos=(0, -0.4),
                          pos=(0.75, 0, 0.62-i*0.15),
                          scale=0.07,
@@ -1416,7 +1404,7 @@ class FastSimWorld(World):
                          extraArgs=[point_name],
                          parent=self.edit_point_dialog)
             
-            DirectButton(text="删除",
+            DirectButton(text="删除" if self.language=='zh' else "Delete",
                          text_pos=(0, -0.4),
                          pos=(1.05, 0, 0.62-i*0.15),
                          scale=0.07,
@@ -1502,7 +1490,7 @@ class FastSimWorld(World):
 
         root = tk.Tk()
         root.withdraw()
-        point_filepath = filedialog.asksaveasfilename(title=title,
+        point_filepath = filedialog.asksaveasfilename(title=title if self.language=='zh' else 'Save Points',
                                                 initialdir="./config/points",
                                                 initialfile='Untitled.yaml',
                                                 defaultextension=".yaml",
@@ -1546,22 +1534,22 @@ class FastSimWorld(World):
             Planning the path
         """
 
-        self.plan_dialog = DirectDialog(dialogName='路径规划',
+        self.plan_dialog = DirectDialog(dialogName='路径规划' if self.language=='zh' else 'Plan',
                                         pos=(0.4, 0, -0.2),
                                         scale=(0.4, 0.4, 0.4),
-                                        buttonTextList=['点位预览', '路径规划', '停止动画', '记录', '取消'],
+                                        buttonTextList=['点位预览', '路径规划', '停止动画', '记录', '取消'] if self.language=='zh' else ['Preview', 'Plan', 'Stop', 'Record', 'Cancel'],
                                         buttonValueList=[1, 2, 3, 4, 0],
                                         frameSize=(-1.0, 1.0, 0, 1.0),
                                         frameColor=(0.8, 0.8, 0.8, 0.9),
                                         command=self.plan_dialog_button_clicked_moving,
                                         parent=self.frame_middle)
 
-        DirectLabel(text="起始点位",
+        DirectLabel(text="起始点位" if self.language=='zh' else "Start",
                     pos=(-0.8, 0, 0.8),
                     scale=0.07,
                     parent=self.plan_dialog)
         
-        DirectLabel(text="目标点位", 
+        DirectLabel(text="目标点位" if self.language=='zh' else "Goal", 
                     pos=(-0.8, 0, 0.5),
                     scale=0.07,
                     parent=self.plan_dialog)
@@ -1569,7 +1557,7 @@ class FastSimWorld(World):
         if self.point_temp:
             options = list(self.point_temp.keys())
         else:
-            options = ['- 请选择点位 -']
+            options = ['- 请选择点位 -'] if self.language=='zh' else ['- choose a point -']
 
         self.start_option_menu = DirectOptionMenu(text_pos=(1, -0.4),
                                             scale=(0.08, 0.08, 0.08),
@@ -1672,10 +1660,10 @@ class FastSimWorld(World):
 
                 self.plan_dialog.hide()
 
-                self.record_path_dialog = DirectDialog(dialogName='记录路径',
-                                    text='输入路径名称:',
+                self.record_path_dialog = DirectDialog(dialogName='记录路径' if self.language=='zh' else 'Record Path',
+                                    text='输入路径名称:' if self.language=='zh' else 'Enter the path name:',
                                     scale=(0.7, 0.7, 0.7),
-                                    buttonTextList=['确认', '取消'],
+                                    buttonTextList=['确认', '取消'] if self.language=='zh' else ['OK', 'Cancel'],
                                     buttonValueList=[1, 0],
                                     command=self.record_path_dialog_button_clicked_moving)
 
@@ -1880,10 +1868,10 @@ class FastSimWorld(World):
 
         self.edit_path_checkbox_values = []
 
-        self.edit_path_dialog = DirectDialog(dialogName='编辑路径',
+        self.edit_path_dialog = DirectDialog(dialogName='编辑路径' if self.language=='zh' else 'Edit Paths',
                                             pos=(-0.5, 0, -0.2),
                                             scale=(0.4, 0.4, 0.4),
-                                            buttonTextList=['移除', '关闭'],
+                                            buttonTextList=['移除', '关闭'] if self.language=='zh' else ['Remove', 'Close'],
                                             buttonValueList=[1, 0],
                                             frameSize=(-1.5,1.5,-0.1-0.1*len(self.path_temp),1),
                                             frameColor=(0.8,0.8,0.8,0.9),
@@ -1893,17 +1881,17 @@ class FastSimWorld(World):
         self.edit_path_dialog.buttonList[0].setPos((1.0, 0, -0.05-0.1*len(self.path_temp)))
         self.edit_path_dialog.buttonList[1].setPos((1.3, 0, -0.05-0.1*len(self.path_temp)))
 
-        DirectLabel(text="路径名称", 
+        DirectLabel(text="路径名称" if self.language=='zh' else "Path Name", 
                     pos=(-1.0, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_path_dialog)
         
-        DirectLabel(text="预览", 
+        DirectLabel(text="预览" if self.language=='zh' else "Preview", 
                     pos=(0, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_path_dialog)
         
-        DirectLabel(text="移除", 
+        DirectLabel(text="移除" if self.language=='zh' else "Remove", 
                     pos=(1.0, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_path_dialog)
@@ -1914,7 +1902,7 @@ class FastSimWorld(World):
                         scale=0.07, 
                         parent=self.edit_path_dialog)
 
-            DirectButton(text="预览",
+            DirectButton(text="预览" if self.language=='zh' else "Preview",
                          text_pos=(0, -0.4),
                          pos=(-0.25, 0, 0.62-i*0.15),
                          scale=0.07,
@@ -1923,7 +1911,7 @@ class FastSimWorld(World):
                          extraArgs=[path_name],
                          parent=self.edit_path_dialog)
             
-            DirectButton(text="删除",
+            DirectButton(text="删除" if self.language=='zh' else "Delete",
                          text_pos=(0, -0.4),
                          pos=(0.25, 0, 0.62-i*0.15),
                          scale=0.07,
@@ -2014,7 +2002,7 @@ class FastSimWorld(World):
 
         root = tk.Tk()
         root.withdraw()
-        path_filepath = filedialog.asksaveasfilename(title=title,
+        path_filepath = filedialog.asksaveasfilename(title=title if self.language=='zh' else 'Save Paths',
                                                 initialdir="./config/paths",
                                                 initialfile='Untitled.yaml',
                                                 defaultextension=".yaml",
@@ -2060,10 +2048,10 @@ class FastSimWorld(World):
 
         print("[Info] editing tasks")
 
-        self.edit_task_dialog = DirectDialog(dialogName='编辑任务',
+        self.edit_task_dialog = DirectDialog(dialogName='编辑任务' if self.language=='zh' else 'Edit Tasks',
                                         pos=(-0.5, 0, -0.2),
                                         scale=(0.4, 0.4, 0.4),
-                                        buttonTextList=['添加', '应用', '关闭'],
+                                        buttonTextList=['添加', '应用', '关闭'] if self.language=='zh' else ['Add', 'Apply', 'Close'],
                                         buttonValueList=[1, 2, 0],
                                         frameSize=(-1.5, 1.5, -0.1-0.2*len(self.task_temp['targets']), 1),
                                         frameColor=(0.8, 0.8, 0.8, 0.9),
@@ -2077,22 +2065,22 @@ class FastSimWorld(World):
         if not self.path_temp and not self.point_temp:
             self.edit_task_dialog.buttonList[0]['state'] = DGG.DISABLED
 
-        DirectLabel(text="目标类型", 
+        DirectLabel(text="目标类型" if self.language=='zh' else "Target Type", 
                     pos=(-1.1, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_task_dialog)
         
-        DirectLabel(text="目标名称", 
+        DirectLabel(text="目标名称" if self.language=='zh' else "Target Name", 
                     pos=(-0.4, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_task_dialog)
         
-        DirectLabel(text="预览", 
+        DirectLabel(text="预览" if self.language=='zh' else "Preview", 
                     pos=(0.5, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_task_dialog)
         
-        DirectLabel(text="移除", 
+        DirectLabel(text="移除" if self.language=='zh' else "Remove", 
                     pos=(1.2, 0, 0.8),
                     scale=0.07,
                     parent=self.edit_task_dialog)
@@ -2134,7 +2122,7 @@ class FastSimWorld(World):
                                                 extraArgs=[i],
                                                 parent=self.edit_task_dialog)
 
-            DirectButton(text="预览",
+            DirectButton(text="预览" if self.language=='zh' else "Preview",
                          text_pos=(0, -0.4),
                          pos=(0.3, 0, 0.6-i*0.2),
                          scale=0.07,
@@ -2143,7 +2131,7 @@ class FastSimWorld(World):
                          extraArgs=[target_type, target_name],
                          parent=self.edit_task_dialog)
             
-            DirectButton(text="删除",
+            DirectButton(text="删除" if self.language=='zh' else "Delete",
                          text_pos=(0, -0.4),
                          pos=(0.7, 0, 0.6-i*0.2),
                          scale=0.07,
@@ -2323,12 +2311,12 @@ class FastSimWorld(World):
 
         print("[Info] exporting task")
 
-        model_filepath = self.save_modeling(title='保存任务模型')
+        model_filepath = self.save_modeling(title='保存任务模型' if self.language=='zh' else 'Save Task - Models')
 
         if model_filepath:
-            point_filepath = self.save_teaching(title='保存任务点位')
+            point_filepath = self.save_teaching(title='保存任务点位' if self.language=='zh' else 'Save Task - Points')
             if point_filepath:
-                path_filepath = self.save_moving(title='保存任务路径')
+                path_filepath = self.save_moving(title='保存任务路径' if self.language=='zh' else 'Save Task - Paths')
                 if not path_filepath:
                     print("[Info] 未保存任务Path文件,已退出")
             else:
@@ -2352,7 +2340,7 @@ class FastSimWorld(World):
 
             root = tk.Tk()
             root.withdraw()
-            task_filepath = filedialog.asksaveasfilename(title=title,
+            task_filepath = filedialog.asksaveasfilename(title=title if self.language=='zh' else 'Save Task',
                                                     initialdir="./config/tasks",
                                                     initialfile='Untitled.yaml',
                                                     defaultextension=".yaml",
@@ -2413,14 +2401,20 @@ class FastSimWorld(World):
                 robot_rotmat = rm.rotmat_from_euler(robot_model_pose[3],
                                                     robot_model_pose[4],
                                                     robot_model_pose[5])
-                if robot_model == 'ur5e':
-                    from robot_sim.robots.ur5e import ur5e
+                try:
+                    module_name = f"robot_sim.robots.{robot_model}"
+                    module = importlib.import_module(module_name)
+                    print(f"Import {robot_model} ...")
+                    # 现在你可以使用 robot_class 进行后续操作，比如实例化对象等
+                    robot_class = getattr(module, 'ROBOT')
+                    robot_s = robot_class(enable_cc=True, hnd_attached=False, 
+                                        pos=robot_pos, rotmat=robot_rotmat)
+
+                except ImportError:
+                    print(f"Failed to import {robot_model}.")
+
+                if robot_model == 'ur5e.ur5e':
                     from robot_con.ur.ur5e import UR5ERtqHE as ur5e_real
-
-                    robot_s = ur5e.ROBOT(enable_cc=True, peg_attached=False, 
-                                         pos=robot_pos, rotmat=robot_rotmat)
-                    component = 'arm'
-
                     if self.robot_connect:
                         print("[Info] 机器人已连接")
                         self.robot_r = ur5e_real(robot_ip=self.robot_ip, 
@@ -2432,21 +2426,6 @@ class FastSimWorld(World):
 
                 elif robot_model[:2] == 'fr':
                     from fr_python_sdk.frmove import FRCobot as fr_real
-                    if robot_model[2:] == '3':
-                        from robot_sim.robots.fr3 import fr3 as fr    
-                    elif robot_model[2:] == '5':
-                        from robot_sim.robots.fr5 import fr5 as fr
-                    elif robot_model[2:] == '10':
-                        from robot_sim.robots.fr10 import fr10 as fr
-                    elif robot_model[2:] == '16':
-                        from robot_sim.robots.fr16 import fr16 as fr
-                    elif robot_model[2:] == '20':
-                        from robot_sim.robots.fr20 import fr20 as fr
-
-                    robot_s = fr.ROBOT(enable_cc=True, peg_attached=False, 
-                                        pos=robot_pos, rotmat=robot_rotmat,
-                                        zrot_to_gndbase=0)
-                    component = 'arm'
                     if self.robot_connect:
                         print("[Info] 机器人已连接")
                         self.robot_r = fr_real(robot_ip=self.robot_ip)
@@ -2456,6 +2435,7 @@ class FastSimWorld(World):
                         self.init_conf = np.zeros(6)
                 
                 self.model_init_pose_values[f"robot-{robot_model}"] = robot_model_pose
+                component = 'arm'
                 self.robot_modeling(robot_s, component, robot_pos, robot_rotmat)
             
                 # 根据导入的机器人型号设置关节限位角度
