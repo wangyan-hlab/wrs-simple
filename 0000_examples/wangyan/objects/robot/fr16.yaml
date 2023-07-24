@@ -1,5 +1,5 @@
 robot:
-- fr16
+- fr16.fr16
 - [0,0,0,0,0,0]
 static: []
 wobj: []

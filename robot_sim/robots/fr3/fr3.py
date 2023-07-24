@@ -18,7 +18,7 @@ class ROBOT(ri.RobotInterface):
     """
     
     def __init__(self, pos=np.zeros(3), rotmat=np.eye(3), name='fr3', homeconf=np.zeros(6),
-                 enable_cc=True, peg_attached=True, zrot_to_gndbase=np.radians(135)):
+                 enable_cc=True, hnd_attached=True, zrot_to_gndbase=np.radians(135)):
         super().__init__(pos=pos, rotmat=rotmat, name=name)
         this_dir, this_filename = os.path.split(__file__)
         self.ground_base = jl.JLChain(pos=pos, rotmat=rotmat, homeconf=np.zeros(0), name="robot_to_ground_base")
@@ -39,8 +39,8 @@ class ROBOT(ri.RobotInterface):
                           enable_cc=False)
         self.manipulator_dict['arm'] = self.arm
         self.manipulator_dict['hnd'] = self.arm
-        self.peg_attached = peg_attached
-        if peg_attached:
+        self.hnd_attached = hnd_attached
+        if hnd_attached:
             self.peg_rotmat = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
             self.hnd = peg.PegLink(pos=self.arm.jnts[-1]['gl_posq'],
                                    rotmat=np.dot(self.arm.jnts[-1]['gl_rotmatq'], self.peg_rotmat),
@@ -86,7 +86,7 @@ class ROBOT(ri.RobotInterface):
         super().enable_cc()
         self.cc.add_cdlnks(self.ground_base, [0])
         self.cc.add_cdlnks(self.arm, [0, 1, 2, 3, 4, 5, 6])
-        if self.peg_attached:
+        if self.hnd_attached:
             self.cc.add_cdlnks(self.hnd.jlc, [0])
         # lnks used for cd with external stationary objects
         activelist_arm = [self.arm.lnks[0],
@@ -96,7 +96,7 @@ class ROBOT(ri.RobotInterface):
                           self.arm.lnks[4],
                           self.arm.lnks[5],
                           self.arm.lnks[6]]
-        if self.peg_attached:
+        if self.hnd_attached:
             activelist_peg = [self.hnd.jlc.lnks[0]]
             activelist = activelist_arm + activelist_peg
         else:
@@ -110,7 +110,7 @@ class ROBOT(ri.RobotInterface):
                         self.arm.lnks[4],
                         self.arm.lnks[5],
                         self.arm.lnks[6]]
-        if self.peg_attached:
+        if self.hnd_attached:
             intolist_peg = [self.hnd.jlc.lnks[0]]
             intolist = intolist_arm + intolist_peg
         else:
@@ -120,7 +120,7 @@ class ROBOT(ri.RobotInterface):
         intolist_arm = [self.arm.lnks[4],
                         self.arm.lnks[5],
                         self.arm.lnks[6]]
-        if self.peg_attached:
+        if self.hnd_attached:
             intolist_peg = [self.hnd.jlc.lnks[0]]
             intolist = intolist_arm + intolist_peg
         else:
@@ -128,7 +128,7 @@ class ROBOT(ri.RobotInterface):
         self.cc.set_cdpair(fromlist, intolist)
         fromlist = [self.arm.lnks[3]]
         intolist_arm = [self.arm.lnks[6]]
-        if self.peg_attached:
+        if self.hnd_attached:
             intolist_peg = [self.hnd.jlc.lnks[0]]
             intolist = intolist_arm + intolist_peg
         else:
@@ -163,7 +163,7 @@ class ROBOT(ri.RobotInterface):
         self.arm.fix_to(pos=self.ground_base.jnts[0]['gl_posq'],
                         rotmat=np.dot(self.ground_base.jnts[0]['gl_rotmatq'],
                                       rm.rotmat_from_euler(0,0,0)))
-        if self.peg_attached:
+        if self.hnd_attached:
             self.hnd.fix_to(pos=self.arm.jnts[-1]['gl_posq'],
                             rotmat=np.dot(self.arm.jnts[-1]['gl_rotmatq'], self.peg_rotmat))
 
@@ -178,7 +178,7 @@ class ROBOT(ri.RobotInterface):
 
         def update_component(component_name='arm', jnt_values=np.zeros(6)):
             self.manipulator_dict[component_name].fk(jnt_values=jnt_values)
-            if self.peg_attached:
+            if self.hnd_attached:
                 self.hnd_dict[component_name].fix_to(
                     pos=self.manipulator_dict[component_name].jnts[-1]['gl_posq'],
                     rotmat=np.dot(self.manipulator_dict[component_name].jnts[-1]['gl_rotmatq'], self.peg_rotmat))
@@ -217,7 +217,7 @@ class ROBOT(ri.RobotInterface):
                                toggle_tcpcs=toggle_tcpcs,
                                toggle_jntscs=toggle_jntscs,
                                rgba=rgba).attach_to(meshmodel)
-        if self.peg_attached:
+        if self.hnd_attached:
             self.hnd.gen_meshmodel(toggle_tcpcs=False,
                                    toggle_jntscs=toggle_jntscs,
                                    rgba=rgba).attach_to(meshmodel)
@@ -242,7 +242,7 @@ class ROBOT(ri.RobotInterface):
                                 toggle_tcpcs=toggle_tcpcs,
                                 toggle_jntscs=toggle_jntscs,
                                 toggle_connjnt=toggle_connjnt).attach_to(stickmodel)
-        if self.peg_attached:
+        if self.hnd_attached:
             self.hnd.gen_stickmodel(toggle_tcpcs=False,
                                     toggle_jntscs=toggle_jntscs,
                                     toggle_connjnt=toggle_connjnt).attach_to(stickmodel)
@@ -262,7 +262,7 @@ if __name__ == '__main__':
     fr3.gen_meshmodel(toggle_tcpcs=True).attach_to(base)
 
     arm_jacobian_offset = np.array([0, 0, .145])
-    fr3 = ROBOT(peg_attached=True)
+    fr3 = ROBOT(hnd_attached=True)
     conf2 = np.radians([-93, -98, -73, -97, 90, 91])
     fr3.fk(component_name="arm", jnt_values=conf2)
     print("global_tcp=", fr3.get_gl_tcp())
