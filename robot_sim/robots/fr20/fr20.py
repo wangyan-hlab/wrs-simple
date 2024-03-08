@@ -7,6 +7,7 @@ import modeling.collision_model as cm
 import robot_sim._kinematics.jlchain as jl
 import robot_sim.manipulators.fr20.fr20 as fr
 import robot_sim.end_effectors.external_link.peg.peg as peg
+import robot_sim.end_effectors.suction.mvfln40.mvfln40 as suction
 from panda3d.core import CollisionNode, CollisionBox, Point3
 import robot_sim.robots.robot_interface as ri
 
@@ -14,11 +15,11 @@ class ROBOT(ri.RobotInterface):
 
     """
         author: wangyan
-        date: 2022/02/21, Suzhou
+        date: 2024/03/08, Suzhou
     """
     
     def __init__(self, pos=np.zeros(3), rotmat=np.eye(3), name='fr20', homeconf=np.zeros(6),
-                 enable_cc=True, hnd_attached=True, zrot_to_gndbase=np.radians(135)):
+                 enable_cc=True, hnd_attached=True, zrot_to_gndbase=np.radians(0)):
         super().__init__(pos=pos, rotmat=rotmat, name=name)
         this_dir, this_filename = os.path.split(__file__)
         self.ground_base = jl.JLChain(pos=pos, rotmat=rotmat, homeconf=np.zeros(0), name="robot_to_ground_base")
@@ -28,7 +29,8 @@ class ROBOT(ri.RobotInterface):
         self.ground_base.lnks[0]['collision_model'] = cm.CollisionModel(
             os.path.join(this_dir, "meshes/ground_base.stl"),
             cdprimit_type="user_defined", expand_radius=.002,
-            userdefined_cdprimitive_fn=self._base_combined_cdnp)
+            userdefined_cdprimitive_fn=self._base_combined_cdnp
+            )
         self.ground_base.lnks[0]['rgba'] = [.5, .5, .5, 1.0]
         self.ground_base.reinitialize()
 
@@ -41,14 +43,14 @@ class ROBOT(ri.RobotInterface):
         self.manipulator_dict['hnd'] = self.arm
         self.hnd_attached = hnd_attached
         if hnd_attached:
-            self.peg_rotmat = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
-            self.hnd = peg.PegLink(pos=self.arm.jnts[-1]['gl_posq'],
-                                   rotmat=np.dot(self.arm.jnts[-1]['gl_rotmatq'], self.peg_rotmat),
-                                   enable_cc=False)
+            self.peg_rotmat = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+            self.hnd = suction.MVFLN40(pos=self.arm.jnts[-1]['gl_posq'],
+                                       rotmat=np.dot(self.arm.jnts[-1]['gl_rotmatq'], self.peg_rotmat),
+                                       enable_cc=False)
             # tool center point
             self.arm.tcp_jnt_id = -1
-            self.arm.tcp_loc_pos = self.hnd.center_pos
-            self.arm.tcp_loc_rotmat = self.hnd.center_rotmat
+            self.arm.tcp_loc_pos = self.hnd.suction_center_pos
+            self.arm.tcp_loc_rotmat = self.hnd.suction_center_rotmat
             # a list of detailed information about objects in hand, see CollisionChecker.add_objinhnd
             self.hnd_dict['arm'] = self.hnd
             self.hnd_dict['hnd'] = self.hnd
