@@ -3,31 +3,42 @@ import visualization.panda.world as wd
 import modeling.geometric_model as gm
 import modeling.collision_model as cm
 import modeling.dynamics.bullet.bdmodel as bdm
-import robot_sim.robots.fr20.fr20 as fr20
+import robot_sim.robots.fr20.fr20 as robot
 import numpy as np
 import math
 import basis.robot_math as rm
 import time
 from test_inference import BppAgent
 from unified_test import registration_envs
+from example_sequences import SEQS
+import argparse
 
 if __name__ == '__main__':
     # inference box sequences
-    from acktr.arguments import get_args
+    # from acktr.arguments import get_args
 
-    registration_envs()
-    args = get_args()
-    tester = BppAgent(args=args)
-    bin_size = tester.bin_size
+    # registration_envs()
+    # args = get_args()
+    # tester = BppAgent(args=args)
+    # bin_size = tester.bin_size
 
-    if not args.real:
-        tester.test_sim()
-    else:
-        tester.test_real()
+    # if not args.real:
+    #     tester.test_sim()
+    # else:
+    #     tester.test_real()
 
-    sequences = tester.sequences
-    color_list = ['red','tomato','pink','orange','yellow',
-                'green','cyan','blue','magenta','purple']
+    # sequences = tester.sequences
+
+    parser = argparse.ArgumentParser(description='RL')
+    parser.add_argument(
+        '--seq_id', type=int, default=-1, help='sequence id to simulate'
+    )
+    args = parser.parse_args()
+
+    sequences = SEQS
+    selected_seq_id = args.seq_id
+
+    color_list = ['red','tomato','pink','orange','yellow', 'green','cyan','blue','magenta','purple']
 
     # 3d simulation
     base = wd.World(cam_pos=[5, -5, 3], lookat_pos=[0, 0, -1])
@@ -43,8 +54,8 @@ if __name__ == '__main__':
     bin_pos = pallet_origin_pos + .5*np.array([-pallet_size[0], pallet_size[1], pallet_size[2]])
     bin_homomat = rm.homomat_from_posrot(pos=bin_pos)
     gm.gen_box(homomat=bin_homomat, rgba=[0,0,0,0.1]).attach_to(base)
+    
     # generate the real box sequence
-    selected_seq_id = -1
     box_sequence = np.array(sequences[selected_seq_id])
     box_sequence = [np.concatenate((box[:3]*0.04, (box[3:]+box[:3]*0.5)*0.04)) for box in box_sequence]
     box_suction_sequence = [box[3:]+np.array([0,0,box[2]*.5]) for box in box_sequence]
@@ -63,7 +74,7 @@ if __name__ == '__main__':
 
     # robot_s
     component_name = 'arm'
-    robot_instance = fr20.ROBOT(hnd_attached=True)
+    robot_instance = robot.ROBOT(hnd_attached=True)
     start_jnt = np.radians([0, -120, 120, -90, -90, 0])
     robot_instance.fk(component_name, start_jnt)
     robot_instance.gen_meshmodel(toggle_tcpcs=True).attach_to(base)
