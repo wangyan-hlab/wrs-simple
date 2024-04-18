@@ -45,7 +45,8 @@ if __name__ == '__main__':
     gm.gen_frame().attach_to(base)
 
     # generate the pallet frame
-    pallet_size = np.array([1, 1, 1])
+    pallet_l, pallet_w, pallet_h = 1, 1, 1
+    pallet_size = np.array([pallet_l, pallet_w, pallet_h])
     pallet_origin_pos = np.array([1.5, -0.5, -0.5])
     pallet_origin_rotmat = rm.rotmat_from_euler(0, 0, np.pi/2)
     pallet_origin_homomat = rm.homomat_from_posrot(pallet_origin_pos, pallet_origin_rotmat)
@@ -56,8 +57,9 @@ if __name__ == '__main__':
     gm.gen_box(homomat=bin_homomat, rgba=[0,0,0,0.1]).attach_to(base)
     
     # generate the real box sequence
+    grid_size = 20 * 0.001
     box_sequence = np.array(sequences[selected_seq_id])
-    box_sequence = [np.concatenate((box[:3]*0.04, (box[3:]+box[:3]*0.5)*0.04)) for box in box_sequence]
+    box_sequence = [np.concatenate((box[:3]*grid_size, (box[3:]+box[:3]*0.5)*grid_size)) for box in box_sequence]
     box_suction_sequence = [box[3:]+np.array([0,0,box[2]*.5]) for box in box_sequence]
     robot_goals = []
     for box_suction in box_suction_sequence:
