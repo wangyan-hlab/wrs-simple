@@ -4,6 +4,7 @@ import modeling.geometric_model as gm
 import modeling.collision_model as cm
 import modeling.dynamics.bullet.bdmodel as bdm
 import robot_sim.robots.fr20.fr20 as robot
+import robot_sim.robots.fr5.fr5 as robot
 import numpy as np
 import math
 import basis.robot_math as rm
@@ -45,16 +46,17 @@ if __name__ == '__main__':
     gm.gen_frame().attach_to(base)
 
     # generate the pallet frame
-    pallet_l, pallet_w, pallet_h = 1, 1, 1
+    pallet_l, pallet_w, pallet_h = 0.4, 0.4, 0.4
     pallet_size = np.array([pallet_l, pallet_w, pallet_h])
-    pallet_origin_pos = np.array([1.5, -0.5, -0.5])
+    # pallet_origin_pos = np.array([1.5, -0.5, -0.5])
+    pallet_origin_pos = np.array([0.7, -0.5, 0.0])
     pallet_origin_rotmat = rm.rotmat_from_euler(0, 0, np.pi/2)
     pallet_origin_homomat = rm.homomat_from_posrot(pallet_origin_pos, pallet_origin_rotmat)
     gm.gen_frame(pallet_origin_pos, pallet_origin_rotmat).attach_to(base)
     # generate the bin
     bin_pos = pallet_origin_pos + .5*np.array([-pallet_size[0], pallet_size[1], pallet_size[2]])
     bin_homomat = rm.homomat_from_posrot(pos=bin_pos)
-    gm.gen_box(homomat=bin_homomat, rgba=[0,0,0,0.1]).attach_to(base)
+    gm.gen_box(extent=pallet_size, homomat=bin_homomat, rgba=[0,0,0,0.1]).attach_to(base)
     
     # generate the real box sequence
     grid_size = 20 * 0.001
@@ -80,6 +82,7 @@ if __name__ == '__main__':
     start_jnt = np.radians([0, -120, 120, -90, -90, 0])
     robot_instance.fk(component_name, start_jnt)
     robot_instance.gen_meshmodel(toggle_tcpcs=True).attach_to(base)
+    # base.run()
 
     goal_jnts = []
     for goal_id, robot_goal in enumerate(robot_goals):
