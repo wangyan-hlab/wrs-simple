@@ -49,6 +49,7 @@ class GripperInterface(object):
             pos = cdelement['gl_pos']
             rotmat = cdelement['gl_rotmat']
             self.cdmesh_collection.cm_list[i].set_pos(pos)
+            print('>>pos', pos, '>>rotmat', rotmat)
             self.cdmesh_collection.cm_list[i].set_rotmat(rotmat)
             iscollided, collided_points = self.cdmesh_collection.cm_list[i].is_mcdwith(objcm_list, True)
             if iscollided:

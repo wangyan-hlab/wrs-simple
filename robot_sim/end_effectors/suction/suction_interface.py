@@ -77,7 +77,7 @@ class SuctionInterface(object):
         return [gl_suction_center_pos, gl_suction_center_rotmat, eef_root_pos, eef_root_rotmat]
 
 
-    def suction_to_with_sczy(self, gl_suction_center_pos, gl_suction_center_z, gl_suction_center_y):
+    def suction_to_with_sczy(self, gl_suction_center_pos, gl_suction_center_x, gl_suction_center_z):
         """
         :param gl_suction_center_pos:
         :param gl_suction_center_z: jaw_center's approaching direction
@@ -87,11 +87,14 @@ class SuctionInterface(object):
         author: weiwei
         date: 20220127
         """
-        gl_jaw_center_rotmat = np.eye(3)
-        gl_jaw_center_rotmat[:, 2] = rm.unit_vector(gl_suction_center_z)
-        gl_jaw_center_rotmat[:, 1] = rm.unit_vector(gl_suction_center_y)
-        gl_jaw_center_rotmat[:, 0] = np.cross(gl_jaw_center_rotmat[:3, 1], gl_jaw_center_rotmat[:3, 2])
-        return self.suction_to_with_scpose(gl_suction_center_pos, gl_suction_center_z)
+        gl_suction_center_rotmat = np.eye(3)
+        # gl_suction_center_rotmat[:, 2] = rm.unit_vector(gl_suction_center_z)
+        # gl_suction_center_rotmat[:, 1] = rm.unit_vector(gl_suction_center_y)
+        # gl_suction_center_rotmat[:, 0] = np.cross(gl_suction_center_rotmat[:3, 1], gl_suction_center_rotmat[:3, 2])
+        gl_suction_center_rotmat[:, 0] = rm.unit_vector(gl_suction_center_x)
+        gl_suction_center_rotmat[:, 2] = rm.unit_vector(gl_suction_center_z)
+        gl_suction_center_rotmat[:, 1] = np.cross(gl_suction_center_rotmat[:3, 2], gl_suction_center_rotmat[:3, 0])
+        return self.suction_to_with_scpose(gl_suction_center_pos, gl_suction_center_rotmat)
 
     def show_cdprimit(self):
         self.cc.show_cdprimit()

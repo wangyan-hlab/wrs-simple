@@ -114,6 +114,63 @@ def define_grasp_with_rotation(hnd_s,
     return grasp_info_list
 
 
+def define_suction_with_rotation(hnd_s,
+                               objcm,
+                               gl_jaw_center_pos,
+                               gl_jaw_center_x,
+                               gl_jaw_center_z,
+                               gl_rotation_ax,
+                               rotation_interval=math.radians(60),
+                               rotation_range=(math.radians(-180), math.radians(180)),
+                               toggle_flip=True,
+                               toggle_debug=False):
+    """
+    :param hnd_s:
+    :param objcm: 
+    :param gl_jaw_center_pos:
+    :param gl_jaw_center_z: hand approaching direction
+    :param gl_jaw_center_y: normal direction of thumb's contact surface
+    :param jaw_width: 
+    :param rotation_interval: 
+    :param rotation_range: 
+    :param toggle_flip: 
+    :return: a list [[jaw_width, gl_jaw_center_pos, pos, rotmat], ...]
+    author: chenhao, revised by weiwei
+    date: 20200104
+    """
+    grasp_info_list = []
+    collided_grasp_info_list = []
+    for rotate_angle in np.arange(rotation_range[0], rotation_range[1], rotation_interval):
+        tmp_rotmat = rm.rotmat_from_axangle(gl_rotation_ax, rotate_angle)
+        gl_jaw_center_x_rotated = np.dot(tmp_rotmat, gl_jaw_center_x)
+        gl_jaw_center_z_rotated = np.dot(tmp_rotmat, gl_jaw_center_z)
+        grasp_info = hnd_s.suction_to_with_sczy(gl_jaw_center_pos, gl_jaw_center_x_rotated, gl_jaw_center_z_rotated)
+        if not hnd_s.is_mesh_collided([objcm]):
+            grasp_info_list.append(grasp_info)
+        else:
+            collided_grasp_info_list.append(grasp_info)
+    if toggle_flip:
+        for rotate_angle in np.arange(rotation_range[0], rotation_range[1], rotation_interval):
+            tmp_rotmat = rm.rotmat_from_axangle(gl_rotation_ax, rotate_angle)
+            gl_jaw_center_x_rotated = np.dot(tmp_rotmat, gl_jaw_center_x)
+            gl_jaw_center_z_rotated = np.dot(tmp_rotmat, -gl_jaw_center_z)
+            grasp_info = hnd_s.suction_to_with_sczy(gl_jaw_center_pos, gl_jaw_center_x_rotated, gl_jaw_center_z_rotated)
+            if not hnd_s.is_mesh_collided([objcm]):
+                grasp_info_list.append(grasp_info)
+            else:
+                collided_grasp_info_list.append(grasp_info)
+    if toggle_debug:
+        for grasp_info in collided_grasp_info_list:
+            jaw_width, gl_jaw_center_pos, gl_jaw_center_rotmat, hnd_pos, hnd_rotmat = grasp_info
+            hnd_s.fix_to(hnd_pos, hnd_rotmat)
+            hnd_s.gen_meshmodel(rgba=[1, 0, 0, .3]).attach_to(base)
+        for grasp_info in grasp_info_list:
+            jaw_width, gl_jaw_center_pos, gl_jaw_center_rotmat, hnd_pos, hnd_rotmat = grasp_info
+            hnd_s.fix_to(hnd_pos, hnd_rotmat)
+            hnd_s.gen_meshmodel(rgba=[0, 1, 0, .3]).attach_to(base)
+    return grasp_info_list
+
+
 def define_pushing(hnd_s,
                    objcm,
                    gl_surface_pos,

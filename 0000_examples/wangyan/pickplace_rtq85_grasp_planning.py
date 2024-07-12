@@ -29,7 +29,7 @@ grasp_info_list = gau.define_grasp_with_rotation(gripper_s,
                                                  gl_jaw_center_y=np.array([0,1,0]),
                                                  jaw_width=0.0324,
                                                  gl_rotation_ax=np.array([0,1,0]),
-                                                 rotation_interval=np.radians(5))
+                                                 rotation_interval=np.radians(120))
 gpa.write_pickle_file(obj_name, grasp_info_list, './', f'rtq85_{obj_name}.pickle')
 for grasp_info in grasp_info_list:
     jaw_width, gl_jaw_center, gl_jaw_rotmat, hnd_pos, hnd_rotmat = grasp_info

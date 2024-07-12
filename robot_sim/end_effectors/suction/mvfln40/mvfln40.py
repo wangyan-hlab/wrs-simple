@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import modeling.model_collection as mc
+import modeling.geometric_model as gm
 import robot_sim._kinematics.jlchain as jl
 import basis.robot_math as rm
 import robot_sim.end_effectors.suction.suction_interface as si
@@ -108,6 +109,7 @@ if __name__ == '__main__':
     grpr.gen_meshmodel(toggle_tcpcs=True).attach_to(base)
     # grpr.gen_stickmodel(toggle_jntscs=False).attach_to(base)
     grpr.fix_to(pos=np.array([0, .3, .2]), rotmat=rm.rotmat_from_axangle([1, 0, 0], .05))
+    gm.gen_frame(pos=np.array([0, .3, .2]), rotmat=rm.rotmat_from_axangle([1, 0, 0], .05))
     grpr.gen_meshmodel().attach_to(base)
     grpr.show_cdmesh()
     grpr.show_cdprimit()
